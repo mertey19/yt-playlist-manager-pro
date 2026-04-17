@@ -1,4 +1,4 @@
-"""Servis ve arayüz katmanında kullanılan ortak yardımcı fonksiyonlar."""
+"""Shared helper functions used by service and UI layers."""
 
 from __future__ import annotations
 
@@ -25,7 +25,7 @@ from yt_playlist_tool.config import (
 
 
 def normalize_text(text: str) -> str:
-    """Türkçe karakterleri sadeleştirip metni küçük harfe çevirir."""
+    """Normalize Turkish characters and lowercase the text."""
     mapping = str.maketrans(
         {
             "ç": "c",
@@ -46,7 +46,7 @@ def normalize_text(text: str) -> str:
 
 
 def safe_filename(base_name: str, suffix: str = "", max_length: int = 120) -> str:
-    """Dosya sistemi için güvenli ve uzunluğu kontrollü bir ad üretir."""
+    """Build a filesystem-safe filename with a controlled length."""
     sanitized = re.sub(r"[^\w\-. ]+", "_", base_name, flags=re.UNICODE)
     sanitized = re.sub(r"\s+", "_", sanitized).strip("._")
     sanitized = sanitized or "file"
@@ -56,13 +56,13 @@ def safe_filename(base_name: str, suffix: str = "", max_length: int = 120) -> st
 
 
 def ensure_directory(path: Path) -> Path:
-    """Klasör yoksa oluşturur ve yolu geri döndürür."""
+    """Create the directory if it does not exist and return it."""
     path.mkdir(parents=True, exist_ok=True)
     return path
 
 
 def setup_logging() -> Path:
-    """Uygulama log yapılandırmasını kurar ve log dosyası yolunu döndürür."""
+    """Set up app logging and return the log file path."""
     app_dir = get_app_dir()
     log_path = app_dir / DEFAULT_LOG_FILE_NAME
 
@@ -78,7 +78,7 @@ def setup_logging() -> Path:
 
 @dataclass
 class Preferences:
-    """Oturumlar arasında saklanan kullanıcı tercihleri."""
+    """User preferences persisted across sessions."""
 
     source_playlists_text: str = ""
     target_playlist: str = ""
@@ -100,7 +100,7 @@ class Preferences:
 
 
 def load_preferences() -> Preferences:
-    """Tercihleri JSON dosyasından yükler, sorun varsa varsayılan döndürür."""
+    """Load preferences from JSON, or return defaults on failure."""
     pref_path = get_app_dir() / PREFERENCES_FILE_NAME
     if not pref_path.exists():
         return Preferences()
@@ -116,13 +116,13 @@ def load_preferences() -> Preferences:
 
 
 def save_preferences(prefs: Preferences) -> None:
-    """Tercihleri JSON formatında kaydeder."""
+    """Save preferences in JSON format."""
     pref_path = get_app_dir() / PREFERENCES_FILE_NAME
     pref_path.write_text(json.dumps(asdict(prefs), ensure_ascii=False, indent=2), encoding="utf-8")
 
 
 def append_history(event: str, payload: dict[str, Any]) -> None:
-    """Geçmiş dosyasına tek satırlık yapılandırılmış kayıt ekler."""
+    """Append a structured one-line event record to history."""
     history_path = get_app_dir() / DEFAULT_HISTORY_FILE_NAME
     record = {
         "timestamp": datetime.now().isoformat(timespec="seconds"),
@@ -134,7 +134,7 @@ def append_history(event: str, payload: dict[str, Any]) -> None:
 
 
 def load_history(limit: int = 50) -> list[dict[str, Any]]:
-    """Son kayıtları en yeniden eskiye doğru döndürür."""
+    """Return recent history records from newest to oldest."""
     history_path = get_app_dir() / DEFAULT_HISTORY_FILE_NAME
     if not history_path.exists():
         return []
@@ -149,7 +149,7 @@ def load_history(limit: int = 50) -> list[dict[str, Any]]:
 
 
 def rotate_history(days: int = DEFAULT_HISTORY_RETENTION_DAYS) -> tuple[int, int]:
-    """Belirtilen günden eski geçmiş kayıtlarını temizler."""
+    """Remove history records older than the configured day window."""
     history_path = get_app_dir() / DEFAULT_HISTORY_FILE_NAME
     if not history_path.exists():
         return (0, 0)
@@ -174,7 +174,7 @@ def rotate_history(days: int = DEFAULT_HISTORY_RETENTION_DAYS) -> tuple[int, int
 
 
 def archive_history() -> Path | None:
-    """Geçmiş dosyasını zaman damgalı arşive taşıyıp aktif dosyayı temizler."""
+    """Move history to a timestamped archive and clear active history."""
     app_dir = get_app_dir()
     history_path = app_dir / DEFAULT_HISTORY_FILE_NAME
     if not history_path.exists() or history_path.stat().st_size == 0:
@@ -190,21 +190,21 @@ def archive_history() -> Path | None:
 
 
 def get_archive_dir() -> Path:
-    """Arşiv klasörünü döndürür, yoksa oluşturur."""
+    """Return the archive directory, creating it if needed."""
     archive_dir = get_app_dir() / ARCHIVE_DIR_NAME
     archive_dir.mkdir(parents=True, exist_ok=True)
     return archive_dir
 
 
 def list_archive_files() -> list[Path]:
-    """Arşiv dosyalarını en yeni üstte olacak şekilde listeler."""
+    """List archive files with newest entries first."""
     archive_dir = get_archive_dir()
     files = [p for p in archive_dir.glob("history_*.jsonl") if p.is_file()]
     return sorted(files, key=lambda p: p.stat().st_mtime, reverse=True)
 
 
 def prune_old_archives(max_files: int) -> tuple[int, int]:
-    """Sadece en yeni N arşivi tutar, kalanları siler."""
+    """Keep only the newest N archives and delete the rest."""
     keep = max(1, int(max_files))
     archives = list_archive_files()
     if len(archives) <= keep:
@@ -218,7 +218,7 @@ def prune_old_archives(max_files: int) -> tuple[int, int]:
 
 
 def get_history_file_size_mb() -> float:
-    """Aktif geçmiş dosyasının boyutunu MB cinsinden döndürür."""
+    """Return the active history file size in megabytes."""
     history_path = get_app_dir() / DEFAULT_HISTORY_FILE_NAME
     if not history_path.exists():
         return 0.0
@@ -226,7 +226,7 @@ def get_history_file_size_mb() -> float:
 
 
 def should_weekly_archive(last_archive_iso: str) -> bool:
-    """Haftalık arşivleme zamanı geldiyse True döndürür."""
+    """Return True when weekly archiving is due."""
     if not last_archive_iso:
         return True
     try:
@@ -237,14 +237,14 @@ def should_weekly_archive(last_archive_iso: str) -> bool:
 
 
 def archive_history_if_oversize(max_size_mb: float) -> Path | None:
-    """Geçmiş dosyası boyut limitini aşarsa arşivler."""
+    """Archive history when it exceeds the configured size limit."""
     if get_history_file_size_mb() < max(0.1, float(max_size_mb)):
         return None
     return archive_history()
 
 
 def clear_state_files(extra_paths: list[Path] | None = None) -> list[Path]:
-    """Bilinen state dosyalarını siler ve silinenleri geri döndürür."""
+    """Delete known state files and return removed paths."""
     app_dir = get_app_dir()
     candidates = [
         app_dir / DEFAULT_TRANSFER_STATE_NAME,
@@ -262,5 +262,5 @@ def clear_state_files(extra_paths: list[Path] | None = None) -> list[Path]:
 
 
 def clear_runtime_state_files(extra_paths: list[Path] | None = None) -> list[Path]:
-    """Geriye dönük uyumluluk için `clear_state_files` yönlendirmesi."""
+    """Backward-compatible wrapper for `clear_state_files`."""
     return clear_state_files(extra_paths=extra_paths)

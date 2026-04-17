@@ -1,4 +1,4 @@
-"""Kullanıcı girdisi çözümleme ve metin ayıklama yardımcıları."""
+"""User-input parsing and text extraction helpers."""
 
 from __future__ import annotations
 
@@ -12,7 +12,7 @@ URL_PATTERN = re.compile(r"(https?://[^\s<>\"]+)", re.IGNORECASE)
 
 
 def extract_playlist_id(text: str) -> str | None:
-    """Playlist kimliğini düz metinden veya URL'den çıkarır."""
+    """Extract a playlist ID from plain text or a URL."""
     raw_value = text.strip()
     if not raw_value:
         return None
@@ -27,7 +27,7 @@ def extract_playlist_id(text: str) -> str | None:
 
 
 def parse_playlist_id_list(raw: str) -> list[str]:
-    """Satır veya virgülle ayrılmış playlist girişlerini tekilleştirerek döndürür."""
+    """Return unique playlist IDs from line- or comma-separated input."""
     playlist_ids: list[str] = []
     seen: set[str] = set()
     for part in re.split(r"[\n,]+", raw):
@@ -39,7 +39,7 @@ def parse_playlist_id_list(raw: str) -> list[str]:
 
 
 def parse_range_string(range_str: str, max_index: int) -> list[int]:
-    """`1-3, 8, 10-12` biçimindeki aralık metnini index listesine çevirir."""
+    """Convert `1-3, 8, 10-12` style input into an index list."""
     selected_indices: set[int] = set()
     cleaned = range_str.strip()
     if not cleaned:
@@ -52,14 +52,14 @@ def parse_range_string(range_str: str, max_index: int) -> list[int]:
         if "-" in token:
             bounds = token.split("-", maxsplit=1)
             if len(bounds) != 2:
-                raise ValueError(f"Geçersiz aralık: '{token}'")
+                raise ValueError(f"Invalid range: '{token}'")
             try:
                 start = int(bounds[0].strip())
                 end = int(bounds[1].strip())
             except ValueError as exc:
-                raise ValueError(f"Geçersiz aralık: '{token}'") from exc
+                raise ValueError(f"Invalid range: '{token}'") from exc
             if start > end:
-                raise ValueError(f"Aralık başlangıcı bitişten büyük: '{token}'")
+                raise ValueError(f"Range start is greater than end: '{token}'")
             for index_value in range(start, end + 1):
                 if 1 <= index_value <= max_index:
                     selected_indices.add(index_value)
@@ -67,17 +67,17 @@ def parse_range_string(range_str: str, max_index: int) -> list[int]:
             try:
                 index_value = int(token)
             except ValueError as exc:
-                raise ValueError(f"Geçersiz index: '{token}'") from exc
+                raise ValueError(f"Invalid index: '{token}'") from exc
             if 1 <= index_value <= max_index:
                 selected_indices.add(index_value)
 
     if not selected_indices:
-        raise ValueError("Hiç geçerli index üretilmedi, aralıkları kontrol edin.")
+        raise ValueError("No valid indices were produced. Please check your range input.")
     return sorted(selected_indices)
 
 
 def extract_pdf_links_from_text(text: str) -> list[str]:
-    """Metin içindeki PDF ve Google Drive bağlantılarını çıkarır."""
+    """Extract PDF and Google Drive links from text."""
     if not text:
         return []
 
@@ -94,7 +94,7 @@ def extract_pdf_links_from_text(text: str) -> list[str]:
 
 
 def convert_drive_link_to_direct(url: str) -> str:
-    """Google Drive paylaşım linkini doğrudan indirme formatına çevirir."""
+    """Convert a Google Drive share link to a direct download URL."""
     parsed = urlparse(url)
     if "drive.google.com" not in parsed.netloc:
         return url
@@ -116,13 +116,13 @@ def convert_drive_link_to_direct(url: str) -> str:
 
 
 def build_search_terms(search_text: str) -> list[str]:
-    """Serbest metindeki arama kelimelerini normalize ederek döndürür."""
+    """Normalize and return search tokens from free-form text."""
     parts = re.split(r"[,\s]+", search_text.strip())
     return [normalize_text(p) for p in parts if p.strip()]
 
 
 def title_matches_terms(title: str, terms: Iterable[str]) -> bool:
-    """Başlıktaki normalize metin tüm arama kelimelerini içeriyorsa True döner."""
+    """Return True if normalized title contains all search terms."""
     term_list = list(terms)
     if not term_list:
         return True
@@ -131,7 +131,7 @@ def title_matches_terms(title: str, terms: Iterable[str]) -> bool:
 
 
 def tokenize_for_topic(text: str) -> list[str]:
-    """Dosya adı veya başlığı konu analizi için kelimelere ayırır."""
+    """Split a filename or title into topic-analysis tokens."""
     text = normalize_text(text)
     chunks = re.split(r"[_\-\s\.]+", text)
     return [c for c in chunks if c and not c.isdigit() and len(c) > 1]

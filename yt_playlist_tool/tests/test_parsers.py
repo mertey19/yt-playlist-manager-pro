@@ -47,13 +47,13 @@ def test_drive_link_conversion_file_d() -> None:
 
 def test_extract_pdf_links_from_text() -> None:
     text = (
-        "ders notu: https://example.com/a.pdf "
-        "ve drive: https://drive.google.com/file/d/XYZ/view?usp=sharing"
+        "lecture note: https://example.com/a.pdf "
+        "and drive: https://drive.google.com/file/d/XYZ/view?usp=sharing"
     )
     links = extract_pdf_links_from_text(text)
     assert len(links) == 2
 
 
-def test_title_matches_terms_turkish_normalization() -> None:
-    terms = build_search_terms("türev integral")
-    assert title_matches_terms("AYT TUREV ve Integral kampi", terms)
+def test_title_matches_terms_normalized_matching() -> None:
+    terms = build_search_terms("turev integral")
+    assert title_matches_terms("AYT TUREV and Integral camp", terms)

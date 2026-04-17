@@ -1,4 +1,4 @@
-"""Uygulama genelinde kullanılan sabitler ve tema ayarları."""
+"""Application-wide constants and theme settings."""
 
 from __future__ import annotations
 
@@ -15,7 +15,7 @@ MAX_API_RESULTS = 50
 RETRY_TOTAL = 3
 RETRY_BACKOFF_FACTOR = 0.7
 LOG_FORMAT = "%(asctime)s [%(levelname)s] %(name)s: %(message)s"
-APP_TITLE = "YouTube Playlist Yönetim Aracı (Pro)"
+APP_TITLE = "YouTube Playlist Management Tool (Pro)"
 APP_DIR_NAME = ".yt_playlist_tool"
 PREFERENCES_FILE_NAME = "preferences.json"
 DEFAULT_LOG_FILE_NAME = "app.log"
@@ -53,7 +53,7 @@ DEFAULT_TOPIC_KEYWORDS = [
 
 @dataclass(frozen=True)
 class Theme:
-    """ttk arayüzünde kullanılan koyu tema renk paleti."""
+    """Dark theme palette used by the ttk interface."""
 
     bg: str = "#1E1E1E"
     panel_bg: str = "#252526"
@@ -66,7 +66,7 @@ class Theme:
 
 
 def get_app_dir() -> Path:
-    """Uygulama veri klasörünü döndürür, yoksa oluşturur."""
+    """Return the app data directory, creating it if needed."""
     app_dir = Path.home() / APP_DIR_NAME
     app_dir.mkdir(parents=True, exist_ok=True)
     return app_dir

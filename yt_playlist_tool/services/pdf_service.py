@@ -1,4 +1,4 @@
-"""PDF indirme, doğrulama ve ZIP paketleme işlemleri."""
+"""PDF download, validation, and ZIP packaging operations."""
 
 from __future__ import annotations
 
@@ -37,7 +37,7 @@ logger = logging.getLogger(__name__)
 
 @dataclass(frozen=True)
 class VideoRef:
-    """PDF servisi için gereken en sade video modeli."""
+    """Minimal video model required by the PDF service."""
 
     video_id: str
     title: str
@@ -45,7 +45,7 @@ class VideoRef:
 
 @dataclass(frozen=True)
 class FailedLink:
-    """İndirilemeyen linklerin rapor kaydı."""
+    """Report record for links that could not be downloaded."""
 
     video_id: str
     video_title: str
@@ -55,7 +55,7 @@ class FailedLink:
 
 @dataclass
 class PdfDownloadReport:
-    """Toplu PDF indirme ve ZIP sürecinin sonucu."""
+    """Result model for bulk PDF download and ZIP operations."""
 
     total_videos: int = 0
     videos_with_links: int = 0
@@ -68,7 +68,7 @@ class PdfDownloadReport:
 
 
 class PdfService:
-    """Video açıklamalarındaki PDF bağlantılarını indirir ve ZIP'e toplar."""
+    """Download PDF links from video descriptions and package them in a ZIP."""
 
     def __init__(
         self,
@@ -83,14 +83,14 @@ class PdfService:
         self._build_session()
 
     def update_retry_policy(self, timeout_seconds: int, retry_total: int, retry_backoff_factor: float) -> None:
-        """Servis nesnesini yeniden kurmadan retry ayarlarını günceller."""
+        """Update retry settings without recreating the service object."""
         self.timeout_seconds = max(5, int(timeout_seconds))
         self.retry_total = max(0, int(retry_total))
         self.retry_backoff_factor = max(0.1, float(retry_backoff_factor))
         self._build_session()
 
     def _build_session(self) -> None:
-        """Geçerli retry ayarlarıyla HTTP oturumunu hazırlar."""
+        """Prepare an HTTP session with current retry settings."""
         retry = Retry(
             total=self.retry_total,
             connect=self.retry_total,
@@ -113,7 +113,7 @@ class PdfService:
         progress_cb: Callable[[int, int], None],
         resume_from_state: bool = False,
     ) -> PdfDownloadReport:
-        """Açıklamalardaki bağlantıları indirip konuya göre ZIP içine yerleştirir."""
+        """Download links from descriptions and place files into topic-based ZIP folders."""
         report = PdfDownloadReport(total_videos=len(videos))
         ensure_directory(output_dir)
         temp_dir = ensure_directory(output_dir / "_temp_pdfs")
@@ -155,7 +155,7 @@ class PdfService:
                 try:
                     self._download_pdf(direct_url, file_path)
                 except Exception as exc:
-                    # Tek bir linkte hata olsa da kalanları indirmeye devam ediyoruz.
+                    # Continue processing even when a single link fails.
                     report.failed_links.append(
                         FailedLink(
                             video_id=video.video_id,
@@ -166,7 +166,7 @@ class PdfService:
                     )
                     if file_path.exists():
                         file_path.unlink(missing_ok=True)
-                    logger.warning("PDF indirilemedi: %s (%s)", direct_url, exc)
+                    logger.warning("PDF download failed: %s (%s)", direct_url, exc)
                     continue
 
                 downloaded_files.append(file_path)
@@ -189,16 +189,16 @@ class PdfService:
         return report
 
     def _download_pdf(self, url: str, destination: Path) -> None:
-        """Tek bir PDF dosyasını timeout ve içerik tipi kontrolüyle indirir."""
+        """Download one PDF with timeout and content-type validation."""
         response = self.session.get(url, stream=True, timeout=self.timeout_seconds)
         response.raise_for_status()
 
-        # Bazı sunucular PDF için octet-stream döndürdüğü için uzantı kontrolünü de kabul ediyoruz.
+        # Some servers return octet-stream for PDFs, so extension-based detection is also allowed.
         content_type = (response.headers.get("content-type") or "").lower()
         guessed_type, _ = mimetypes.guess_type(str(destination))
         looks_like_pdf = "pdf" in content_type or guessed_type == "application/pdf"
         if not looks_like_pdf:
-            raise ValueError(f"Beklenmeyen içerik tipi: {content_type or 'unknown'}")
+            raise ValueError(f"Unexpected content type: {content_type or 'unknown'}")
 
         with destination.open("wb") as stream:
             for chunk in response.iter_content(chunk_size=8192):
@@ -206,10 +206,10 @@ class PdfService:
                     stream.write(chunk)
 
         if destination.stat().st_size == 0:
-            raise ValueError("Boş dosya indirildi.")
+            raise ValueError("Downloaded file is empty.")
 
     def _create_zip_with_topic_folders(self, files: list[Path], zip_path: Path) -> None:
-        """Dosyaları tutarlı bir klasör kuralıyla ZIP içine yerleştirir."""
+        """Put files into the ZIP using deterministic folder selection rules."""
         token_map: dict[Path, list[str]] = {}
         token_counter: Counter[str] = Counter()
 
@@ -226,7 +226,7 @@ class PdfService:
                 archive.write(file_path, arcname=arcname)
 
     def _choose_folder(self, tokens: list[str], token_counter: Counter[str]) -> str:
-        """Önce konu anahtar kelimesine, yoksa ortak geçen kelimelere göre klasör seçer."""
+        """Choose folder by topic keywords first, then by common tokens."""
         for keyword in DEFAULT_TOPIC_KEYWORDS:
             if keyword in tokens:
                 return keyword
@@ -238,25 +238,25 @@ class PdfService:
 
     @staticmethod
     def _cleanup_files(files: list[Path]) -> None:
-        """ZIP tamamlandıktan sonra geçici PDF dosyalarını temizler."""
+        """Delete temporary PDF files after ZIP creation."""
         for file_path in files:
             try:
                 file_path.unlink(missing_ok=True)
             except OSError:
-                logger.warning("Geçici dosya silinemedi: %s", file_path)
+                logger.warning("Could not remove temporary file: %s", file_path)
 
     @staticmethod
     def _write_report_files(output_dir: Path, report: PdfDownloadReport) -> None:
-        """Özet raporu ve başarısız link listesini dosyaya yazar."""
+        """Write summary and failed-link reports to disk."""
         report_path = output_dir / DEFAULT_PDF_REPORT_NAME
         report_lines = [
-            f"Toplam video: {report.total_videos}",
-            f"Link bulunan video: {report.videos_with_links}",
-            f"Tespit edilen link sayısı: {report.discovered_links}",
-            f"İndirilen PDF: {report.downloaded_pdfs}",
-            f"İşlem iptal edildi mi: {'Evet' if report.cancelled else 'Hayır'}",
-            f"ZIP: {report.zip_path or 'Oluşmadı'}",
-            f"Başarısız link sayısı: {len(report.failed_links)}",
+            f"Total videos: {report.total_videos}",
+            f"Videos with links: {report.videos_with_links}",
+            f"Discovered links: {report.discovered_links}",
+            f"Downloaded PDFs: {report.downloaded_pdfs}",
+            f"Cancelled: {'Yes' if report.cancelled else 'No'}",
+            f"ZIP: {report.zip_path or 'Not created'}",
+            f"Failed links: {len(report.failed_links)}",
         ]
         report_path.write_text("\n".join(report_lines), encoding="utf-8")
 
@@ -267,18 +267,18 @@ class PdfService:
                 for item in report.failed_links
             ]
         else:
-            failed_lines = ["Başarısız link yok."]
+            failed_lines = ["No failed links."]
         failed_path.write_text("\n".join(failed_lines), encoding="utf-8")
 
     @staticmethod
     def _save_state(state_path: Path, done_video_ids: set[str]) -> None:
-        """Kaldığı yerden devam edebilmek için state dosyasını yazar."""
+        """Write state to support resume-after-interruption behavior."""
         payload = {"done_video_ids": sorted(done_video_ids)}
         state_path.write_text(json.dumps(payload, ensure_ascii=False, indent=2), encoding="utf-8")
 
     @staticmethod
     def _load_state(state_path: Path) -> set[str]:
-        """Önceki çalışmadan kalan state dosyasını okur."""
+        """Load state left from a previous run."""
         try:
             payload = json.loads(state_path.read_text(encoding="utf-8"))
             ids = payload.get("done_video_ids", [])

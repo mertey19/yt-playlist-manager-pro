@@ -1,20 +1,20 @@
 # yt-playlist-manager-pro
 
-Tkinter tabanlı, üretim yaklaşımıyla düzenlenmiş bir **YouTube playlist yönetim ve PDF toplama** masaüstü uygulaması.
+A Tkinter desktop application for **YouTube playlist management and PDF collection**, organized with a production-oriented architecture.
 
-## Neler Yapıyor?
+## What It Does
 
-- Google YouTube API ile bağlanır
-- Bir veya birden çok playlist’ten videoları çeker
-- Başlığa göre filtreleme yapar
-- Seçilen veya aralıkla belirtilen videoları hedef playlist’e ekler
-- Hedef playlist’teki duplikeleri atlar
-- Video açıklamalarından PDF / Google Drive linklerini bulur
-- PDF dosyalarını indirip konuya göre ZIP içine yerleştirir
-- Uzun işlemlerde iptal (cancel), progress ve durum yönetimi sunar
-- İşlem geçmişi, bakım (maintenance), arşivleme ve rapor dışa aktarma özellikleri içerir
+- Connects to the Google YouTube API
+- Fetches videos from one or more playlists
+- Filters videos by title
+- Adds selected videos (or ranged selections) to a target playlist
+- Skips duplicates already present in the target playlist
+- Extracts PDF / Google Drive links from video descriptions
+- Downloads PDFs and places them into topic-based folders in a ZIP archive
+- Provides cancellation, progress tracking, and status updates for long operations
+- Includes operation history, maintenance tools, archiving, and export features
 
-## Proje Yapısı
+## Project Structure
 
 ```text
 .
@@ -42,41 +42,41 @@ Tkinter tabanlı, üretim yaklaşımıyla düzenlenmiş bir **YouTube playlist y
       └─ yt_playlist_tool.spec
 ```
 
-## Kurulum
+## Setup
 
-### 1) Gereksinimleri yükle
+### 1) Install dependencies
 
 ```powershell
 python -m pip install -r yt_playlist_tool/requirements.txt
 ```
 
-Geliştirme ve test araçları için:
+For development and test tools:
 
 ```powershell
 python -m pip install -r yt_playlist_tool/requirements-dev.txt
 ```
 
-### 2) OAuth dosyalarını hazırla
+### 2) Prepare OAuth files
 
-Çalıştırmadan önce proje kökünde şu dosya bulunmalı:
+Before running the app, make sure this file exists in the project root:
 
 - `client_secret.json`
 
-İlk girişten sonra `token.pickle` otomatik oluşur.
+After the first login, `token.pickle` is created automatically.
 
-## Uygulamayı Çalıştırma
+## Run the Application
 
 ```powershell
 python main.py
 ```
 
-Alternatif:
+Alternative:
 
 ```powershell
 python yt_playlist_tool.py
 ```
 
-## Test Çalıştırma
+## Run Tests
 
 ```powershell
 python -m pytest yt_playlist_tool/tests -q
@@ -88,31 +88,31 @@ python -m pytest yt_playlist_tool/tests -q
 python -m PyInstaller --clean --noconfirm --distpath dist --workpath build "yt_playlist_tool/pyinstaller/yt_playlist_tool.spec"
 ```
 
-Çıktı:
+Output:
 
 - `dist/yt_playlist_tool.exe`
 
-## Öne Çıkan Teknik Özellikler
+## Key Technical Features
 
-- Modüler mimari (UI / services / utils ayrımı)
-- Retry + backoff + throttle destekli ağ katmanı
-- Resumable job akışı (PDF ve transfer state)
-- Thread-safe UI güncellemeleri (queue + main thread)
-- Ayarlanabilir timeout/retry/backoff/throttle
-- Gelişmiş bakım ekranı:
+- Modular architecture (separated UI / services / utils layers)
+- Network layer with retry + backoff + throttle support
+- Resumable job flow (PDF and transfer state)
+- Thread-safe UI updates (queue + main thread)
+- Configurable timeout/retry/backoff/throttle
+- Advanced maintenance panel:
   - startup housekeeping
   - history rotate
   - weekly archive
-  - archive max file limiti
-  - maintenance raporu (TXT/JSON export)
-- Arşiv önizleme:
-  - arama
-  - satır numarası
-  - raw / pretty / compare görünüm
-  - panoya kopyalama
+  - archive max file limit
+  - maintenance report export (TXT/JSON)
+- Archive preview:
+  - search
+  - line numbers
+  - raw / pretty / compare views
+  - copy visible content to clipboard
 
-## Notlar
+## Notes
 
-- Uygulama log, ayar ve geçmiş dosyalarını kullanıcı profilindeki `.yt_playlist_tool` klasöründe tutar.
-- YouTube API kota veya ağ sorunlarında kullanıcıya anlaşılır hata çıktısı vermek için kontrollü exception handling uygulanmıştır.
+- The app stores logs, settings, and history files under `.yt_playlist_tool` in the user profile directory.
+- Controlled exception handling is used to provide clear feedback for API quota and network-related failures.
 

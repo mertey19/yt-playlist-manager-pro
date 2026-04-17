@@ -1,4 +1,4 @@
-"""ttk tabanlı ana masaüstü arayüzü."""
+"""Main desktop interface built with ttk."""
 
 from __future__ import annotations
 
@@ -60,7 +60,7 @@ logger = logging.getLogger(__name__)
 
 
 class PlaylistApp:
-    """Playlist yönetim aracı için arayüz ve akış kontrolünü bir arada tutar."""
+    """Coordinates UI and workflow control for the playlist tool."""
 
     def __init__(self, root: tk.Tk) -> None:
         self.root = root
@@ -92,13 +92,13 @@ class PlaylistApp:
         self.youtube_lock = threading.Lock()
         self.youtube_connected = False
         self.last_retry_events: list[RetryEvent] = []
-        self.last_housekeeping_report: dict[str, str] = {"status": "Henüz çalışmadı."}
+        self.last_housekeeping_report: dict[str, str] = {"status": "Not run yet."}
 
         self.all_videos: list[VideoItem] = []
         self.visible_videos: list[VideoItem] = []
 
-        self.status_var = tk.StringVar(value="Hazır")
-        self.stats_var = tk.StringVar(value="Toplam: 0 | Görünen: 0 | Seçili: 0")
+        self.status_var = tk.StringVar(value="Ready")
+        self.stats_var = tk.StringVar(value="Total: 0 | Visible: 0 | Selected: 0")
         self.dry_run_var = tk.BooleanVar(value=self.prefs.transfer_dry_run)
 
         self._configure_styles()
@@ -145,7 +145,7 @@ class PlaylistApp:
 
         ttk.Label(
             top,
-            text="Kaynak Playlist ID/URL (satır satır veya virgülle):",
+            text="Source Playlist ID/URL (line-by-line or comma-separated):",
             style="Panel.TLabel",
         ).grid(row=0, column=0, sticky="nw", padx=(0, 8), pady=4)
         self.src_text = tk.Text(
@@ -159,26 +159,26 @@ class PlaylistApp:
         )
         self.src_text.grid(row=0, column=1, sticky="ew", pady=4)
 
-        ttk.Label(top, text="Hedef Playlist ID (boşsa yeni):", style="Panel.TLabel").grid(
+        ttk.Label(top, text="Target Playlist ID (leave empty to create new):", style="Panel.TLabel").grid(
             row=1, column=0, sticky="w", padx=(0, 8), pady=4
         )
         self.target_entry = ttk.Entry(top, width=60)
         self.target_entry.grid(row=1, column=1, sticky="ew", pady=4)
 
-        ttk.Label(top, text="Yeni Playlist Adı:", style="Panel.TLabel").grid(
+        ttk.Label(top, text="New Playlist Name:", style="Panel.TLabel").grid(
             row=2, column=0, sticky="w", padx=(0, 8), pady=4
         )
         self.target_name_entry = ttk.Entry(top, width=60)
         self.target_name_entry.grid(row=2, column=1, sticky="ew", pady=4)
 
-        ttk.Label(top, text="Başlık filtresi:", style="Panel.TLabel").grid(
+        ttk.Label(top, text="Title filter:", style="Panel.TLabel").grid(
             row=3, column=0, sticky="w", padx=(0, 8), pady=4
         )
         self.search_entry = ttk.Entry(top, width=60)
         self.search_entry.grid(row=3, column=1, sticky="ew", pady=4)
         self.search_entry.bind("<KeyRelease>", lambda _: self._refresh_visible_videos())
 
-        ttk.Label(top, text="Aralık (örn: 1-5, 10, 15-20):", style="Panel.TLabel").grid(
+        ttk.Label(top, text="Range (e.g. 1-5, 10, 15-20):", style="Panel.TLabel").grid(
             row=4, column=0, sticky="w", padx=(0, 8), pady=4
         )
         self.range_entry = ttk.Entry(top, width=60)
@@ -190,15 +190,15 @@ class PlaylistApp:
         buttons.pack(fill="x", pady=(0, 8))
 
         self.fetch_button = ttk.Button(
-            buttons, text="Playlist Videolarını Getir", command=self.fetch_videos
+            buttons, text="Fetch Playlist Videos", command=self.fetch_videos
         )
         self.fetch_button.pack(side="left", padx=(0, 6))
         self.transfer_button = ttk.Button(
-            buttons, text="Seçilen/Aralık Videoları Ekle", command=self.transfer_selected
+            buttons, text="Add Selected/Range Videos", command=self.transfer_selected
         )
         self.transfer_button.pack(side="left", padx=6)
         self.pdf_button = ttk.Button(
-            buttons, text="PDF İndir + ZIP Oluştur", command=self.download_pdfs
+            buttons, text="Download PDFs + Create ZIP", command=self.download_pdfs
         )
         self.pdf_button.pack(side="left", padx=6)
         ttk.Checkbutton(
@@ -208,24 +208,24 @@ class PlaylistApp:
             style="Panel.TLabel",
         ).pack(side="left", padx=(10, 0))
         self.cancel_button = ttk.Button(
-            buttons, text="İptal", command=self.cancel_current_task, style="Danger.TButton"
+            buttons, text="Cancel", command=self.cancel_current_task, style="Danger.TButton"
         )
         self.cancel_button.pack(side="left", padx=6)
         self.cancel_button.configure(state="disabled")
-        ttk.Button(buttons, text="Ayarlar", command=self.open_settings_dialog).pack(
+        ttk.Button(buttons, text="Settings", command=self.open_settings_dialog).pack(
             side="left", padx=6
         )
 
-        self.select_all_button = ttk.Button(buttons, text="Tümünü Seç", command=self.select_all_visible)
+        self.select_all_button = ttk.Button(buttons, text="Select All", command=self.select_all_visible)
         self.select_all_button.pack(side="right", padx=6)
         self.clear_selection_button = ttk.Button(
-            buttons, text="Seçimi Temizle", command=self.clear_selection
+            buttons, text="Clear Selection", command=self.clear_selection
         )
         self.clear_selection_button.pack(side="right", padx=6)
 
         list_panel = ttk.Frame(main, style="Panel.TFrame", padding=8)
         list_panel.pack(fill="both", expand=True, pady=(0, 8))
-        ttk.Label(list_panel, text="Videolar:", style="Panel.TLabel").pack(anchor="w")
+        ttk.Label(list_panel, text="Videos:", style="Panel.TLabel").pack(anchor="w")
 
         list_container = ttk.Frame(list_panel, style="Panel.TFrame")
         list_container.pack(fill="both", expand=True)
@@ -245,8 +245,8 @@ class PlaylistApp:
         self.listbox.bind("<<ListboxSelect>>", lambda _: self._update_stats())
 
         self.menu = tk.Menu(self.root, tearoff=0)
-        self.menu.add_command(label="Tümünü Seç", command=self.select_all_visible)
-        self.menu.add_command(label="Seçimi Temizle", command=self.clear_selection)
+        self.menu.add_command(label="Select All", command=self.select_all_visible)
+        self.menu.add_command(label="Clear Selection", command=self.clear_selection)
         self.listbox.bind("<Button-3>", self._show_context_menu)
 
         bottom = ttk.Frame(main, style="Panel.TFrame", padding=8)
@@ -258,16 +258,16 @@ class PlaylistApp:
 
         action_bar = ttk.Frame(bottom, style="Panel.TFrame")
         action_bar.pack(fill="x", pady=(6, 0))
-        ttk.Button(action_bar, text="Log'u TXT Olarak Dışa Aktar", command=self.export_log).pack(
+        ttk.Button(action_bar, text="Export Log as TXT", command=self.export_log).pack(
             side="left", padx=(0, 6)
         )
-        ttk.Button(action_bar, text="Listeyi CSV Dışa Aktar", command=self.export_videos_csv).pack(
+        ttk.Button(action_bar, text="Export List to CSV", command=self.export_videos_csv).pack(
             side="left"
         )
-        ttk.Button(action_bar, text="İşlem Geçmişi", command=self.show_history_dialog).pack(
+        ttk.Button(action_bar, text="Operation History", command=self.show_history_dialog).pack(
             side="left", padx=(6, 0)
         )
-        ttk.Button(action_bar, text="Retry Detayları", command=self.show_retry_details_dialog).pack(
+        ttk.Button(action_bar, text="Retry Details", command=self.show_retry_details_dialog).pack(
             side="left", padx=(6, 0)
         )
         ttk.Button(action_bar, text="Maintenance", command=self.show_maintenance_dialog).pack(
@@ -276,7 +276,7 @@ class PlaylistApp:
 
         log_panel = ttk.Frame(main, style="Panel.TFrame", padding=8)
         log_panel.pack(fill="both", expand=False)
-        ttk.Label(log_panel, text="Log:", style="Panel.TLabel").pack(anchor="w")
+        ttk.Label(log_panel, text="Logs:", style="Panel.TLabel").pack(anchor="w")
         self.log_text = tk.Text(
             log_panel,
             height=10,
@@ -305,9 +305,9 @@ class PlaylistApp:
         self.range_entry.insert(0, self.prefs.range_text)
 
     def _run_startup_housekeeping(self) -> None:
-        """Uygulama açılışında bakım görevlerini arka planda çalıştırır."""
+        """Run startup maintenance tasks in the background."""
         if not self.prefs.startup_housekeeping_enabled:
-            self.last_housekeeping_report = {"status": "Startup housekeeping kapalı."}
+            self.last_housekeeping_report = {"status": "Startup housekeeping disabled."}
             return
         def worker() -> None:
             kept, removed = rotate_history(days=self.prefs.history_retention_days)
@@ -330,7 +330,7 @@ class PlaylistApp:
                 "kept": str(kept),
                 "removed": str(removed),
                 "size_before_mb": f"{size_before:.2f}",
-                "archive_created": "Evet" if archive_path else "Hayır",
+                "archive_created": "Yes" if archive_path else "No",
                 "archive_path": str(archive_path) if archive_path else "-",
                 "archives_kept": str(archives_kept),
                 "archives_removed": str(archives_removed),
@@ -343,8 +343,8 @@ class PlaylistApp:
                 if removed > 0 or archive_path is not None or archives_removed > 0:
                     self._append_log(
                         (
-                            "Startup housekeeping çalıştı: "
-                            f"removed={removed}, archive={'evet' if archive_path else 'hayır'}, "
+                            "Startup housekeeping completed: "
+                            f"removed={removed}, archive={'yes' if archive_path else 'no'}, "
                             f"archive_pruned={archives_removed}"
                         )
                     )
@@ -376,7 +376,9 @@ class PlaylistApp:
 
     def _on_close(self) -> None:
         if self.worker_thread and self.worker_thread.is_alive():
-            if not messagebox.askyesno("Çıkış", "Çalışan işlem var. Çıkmak için iptal edilsin mi?"):
+            if not messagebox.askyesno(
+                "Exit", "An operation is still running. Cancel it before exiting?"
+            ):
                 return
             self.cancel_event.set()
         save_preferences(self._current_preferences())
@@ -426,21 +428,21 @@ class PlaylistApp:
             try:
                 self.youtube_service.connect()
             except (AuthError, YouTubeServiceError, OSError) as exc:
-                self._ui_call(lambda: messagebox.showerror("YouTube Bağlantı Hatası", str(exc)))
-                self._ui_call(lambda: self._append_log(f"HATA: Bağlantı kurulamadı: {exc}"))
+                self._ui_call(lambda: messagebox.showerror("YouTube Connection Error", str(exc)))
+                self._ui_call(lambda: self._append_log(f"ERROR: Could not connect: {exc}"))
                 return False
             self.youtube_connected = True
-            self._ui_call(lambda: self._append_log("YouTube servisine bağlanıldı."))
+            self._ui_call(lambda: self._append_log("Connected to YouTube service."))
             return True
 
     def _run_async(self, task_name: str, worker: Callable[[], None]) -> None:
         if self.worker_thread and self.worker_thread.is_alive():
-            messagebox.showwarning("Meşgul", "Önce mevcut işlemi tamamlayın veya iptal edin.")
+            messagebox.showwarning("Busy", "Finish or cancel the current operation first.")
             return
 
         self.cancel_event.clear()
         self._set_busy(True)
-        self._set_status(f"{task_name} çalışıyor...")
+        self._set_status(f"{task_name} is running...")
 
         def run_task_wrapper() -> None:
             try:
@@ -451,11 +453,11 @@ class PlaylistApp:
                 if retry_events:
                     self._ui_call(
                         lambda n=len(retry_events): self._append_log(
-                            f"Retry olayı kaydedildi: {n} adet (Retry Detayları ile inceleyebilirsiniz)."
+                            f"Retry events captured: {n} (see Retry Details)."
                         )
                     )
                 self._ui_call(lambda: self._set_busy(False))
-                self._ui_call(lambda: self._set_status("Hazır"))
+                self._ui_call(lambda: self._set_status("Ready"))
                 self._ui_call(lambda: self._set_progress(0, 0))
 
         self.worker_thread = threading.Thread(target=run_task_wrapper, daemon=True)
@@ -463,13 +465,13 @@ class PlaylistApp:
 
     def cancel_current_task(self) -> None:
         self.cancel_event.set()
-        self._set_status("İptal talebi gönderildi...")
-        self._append_log("İptal talebi alındı, işlem güvenli noktada sonlandırılacak.")
+        self._set_status("Cancel request sent...")
+        self._append_log("Cancel request received. Operation will stop at a safe point.")
 
     def fetch_videos(self) -> None:
         playlist_ids = parse_playlist_id_list(self.src_text.get("1.0", tk.END))
         if not playlist_ids:
-            messagebox.showerror("Hatalı Girdi", "En az bir geçerli kaynak playlist giriniz.")
+            messagebox.showerror("Invalid Input", "Please provide at least one valid source playlist.")
             return
 
         api_filter = self.search_entry.get().strip()
@@ -485,7 +487,7 @@ class PlaylistApp:
 
             for playlist_position, playlist_id in enumerate(playlist_ids, start=1):
                 if self.cancel_event.is_set():
-                    self._ui_call(lambda: self._append_log("Video çekme işlemi iptal edildi."))
+                    self._ui_call(lambda: self._append_log("Video fetch operation was cancelled."))
                     return
                 self._ui_call(lambda p=playlist_position: self._set_progress(p, len(playlist_ids)))
                 self._ui_call(
@@ -501,7 +503,7 @@ class PlaylistApp:
                 except Exception as exc:
                     self._ui_call(
                         lambda p_id=playlist_id, err=exc: self._append_log(
-                            f"HATA: Playlist okunamadı ({p_id}): {err}"
+                            f"ERROR: Could not read playlist ({p_id}): {err}"
                         )
                     )
                     continue
@@ -519,22 +521,22 @@ class PlaylistApp:
                 self._refresh_visible_videos()
                 self._append_log(
                     (
-                        f"Listeleme tamamlandı. Ham: {total_raw}, "
-                        f"Tekil: {len(merged)}, Duplike atlanan: {duplicate_skipped}"
+                        f"Listing completed. Raw: {total_raw}, "
+                        f"Unique: {len(merged)}, Duplicates skipped: {duplicate_skipped}"
                     )
                 )
                 messagebox.showinfo(
-                    "Listeleme Tamamlandı",
+                    "Listing Completed",
                     (
-                        f"Toplam tekil video: {len(merged)}\n"
-                        f"Ham sonuç: {total_raw}\n"
-                        f"Duplike atlanan: {duplicate_skipped}"
+                        f"Total unique videos: {len(merged)}\n"
+                        f"Raw results: {total_raw}\n"
+                        f"Duplicates skipped: {duplicate_skipped}"
                     ),
                 )
 
             self._ui_call(finish_fetch)
 
-        self._run_async("Video çekme", worker)
+        self._run_async("Video fetch", worker)
 
     def _refresh_visible_videos(self) -> None:
         terms = build_search_terms(self.search_entry.get().strip())
@@ -549,7 +551,7 @@ class PlaylistApp:
     def _update_stats(self) -> None:
         selected_count = len(self.listbox.curselection())
         self.stats_var.set(
-            f"Toplam: {len(self.all_videos)} | Görünen: {len(self.visible_videos)} | Seçili: {selected_count}"
+            f"Total: {len(self.all_videos)} | Visible: {len(self.visible_videos)} | Selected: {selected_count}"
         )
 
     def select_all_visible(self) -> None:
@@ -567,24 +569,24 @@ class PlaylistApp:
 
         range_text = self.range_entry.get().strip()
         if not range_text:
-            raise ValueError("Seçim veya aralık belirtmelisiniz.")
+            raise ValueError("You must provide either a selection or a range.")
 
         indices = parse_range_string(range_text, max_index=len(self.visible_videos))
         return [self.visible_videos[i - 1].video_id for i in indices]
 
     def transfer_selected(self) -> None:
         if not self.visible_videos:
-            messagebox.showerror("Eksik İşlem", "Önce playlist videolarını getiriniz.")
+            messagebox.showerror("Missing Step", "Fetch playlist videos first.")
             return
 
         try:
             video_ids = self._collect_selected_video_ids()
         except ValueError as exc:
-            messagebox.showerror("Hatalı Girdi", str(exc))
+            messagebox.showerror("Invalid Input", str(exc))
             return
 
         if not video_ids:
-            messagebox.showerror("Eksik İşlem", "Eklenecek video bulunamadı.")
+            messagebox.showerror("Missing Step", "No videos found to add.")
             return
 
         target_playlist_id = extract_playlist_id(self.target_entry.get().strip() or "")
@@ -594,8 +596,8 @@ class PlaylistApp:
         resume_transfer = False
         if not dry_run and transfer_state_path.exists():
             resume_transfer = messagebox.askyesno(
-                "Transferi Devam Ettir",
-                "Yarım kalan transfer state bulundu. Kaldığı yerden devam edilsin mi?",
+                "Resume Transfer",
+                "A partial transfer state was found. Continue from the saved point?",
             )
             if not resume_transfer:
                 transfer_state_path.unlink(missing_ok=True)
@@ -604,9 +606,9 @@ class PlaylistApp:
             if not self._ensure_connected():
                 return
 
-            mode_text = "dry-run" if dry_run else "gerçek transfer"
+            mode_text = "dry-run" if dry_run else "live transfer"
             self._ui_call(
-                lambda: self._append_log(f"Transfer başlatıldı ({mode_text}). İstek sayısı: {len(video_ids)}")
+                lambda: self._append_log(f"Transfer started ({mode_text}). Request count: {len(video_ids)}")
             )
             try:
                 if dry_run:
@@ -624,36 +626,36 @@ class PlaylistApp:
                         state_path=transfer_state_path,
                     )
             except Exception as exc:
-                self._ui_call(lambda: messagebox.showerror("Transfer Hatası", str(exc)))
-                self._ui_call(lambda: self._append_log(f"HATA: Transfer başarısız: {exc}"))
+                self._ui_call(lambda: messagebox.showerror("Transfer Error", str(exc)))
+                self._ui_call(lambda: self._append_log(f"ERROR: Transfer failed: {exc}"))
                 return
 
             self._ui_call(lambda s=stats, d=dry_run: self._finish_transfer(s, d))
 
-        self._run_async("Video transferi", worker)
+        self._run_async("Video transfer", worker)
 
     def _finish_transfer(self, stats: TransferStats, dry_run: bool) -> None:
-        title = "Transfer Önizleme (Dry-run)" if dry_run else "Transfer Tamamlandı"
-        action_label = "Eklenecek (tahmini)" if dry_run else "Eklenen"
+        title = "Transfer Preview (Dry-run)" if dry_run else "Transfer Completed"
+        action_label = "Will be added (estimated)" if dry_run else "Added"
         messagebox.showinfo(
             title,
             (
-                f"Hedef playlist: {stats.target_playlist_id}\n"
-                f"Yeni oluşturuldu: {'Evet' if stats.target_created else 'Hayır'}\n"
-                f"State'den devam: {'Evet' if stats.resumed_from_state else 'Hayır'}\n"
-                f"İptal edildi: {'Evet' if stats.cancelled else 'Hayır'}\n"
-                f"İstenen: {stats.requested_count}\n"
+                f"Target playlist: {stats.target_playlist_id}\n"
+                f"Created new: {'Yes' if stats.target_created else 'No'}\n"
+                f"Resumed from state: {'Yes' if stats.resumed_from_state else 'No'}\n"
+                f"Cancelled: {'Yes' if stats.cancelled else 'No'}\n"
+                f"Requested: {stats.requested_count}\n"
                 f"{action_label}: {stats.added_count}\n"
-                f"Duplike atlanan: {stats.skipped_duplicate_count}\n"
-                f"Hata: {stats.failed_count}"
+                f"Duplicates skipped: {stats.skipped_duplicate_count}\n"
+                f"Failures: {stats.failed_count}"
             ),
         )
         if dry_run:
             self._append_log(
                 (
-                    "Dry-run özeti -> "
-                    f"Eklenecek: {stats.added_count}, "
-                    f"Duplike: {stats.skipped_duplicate_count}"
+                    "Dry-run summary -> "
+                    f"Will add: {stats.added_count}, "
+                    f"Duplicates: {stats.skipped_duplicate_count}"
                 )
             )
             append_history(
@@ -669,10 +671,10 @@ class PlaylistApp:
             return
         self._append_log(
             (
-                "Transfer özeti -> "
-                f"Eklenen: {stats.added_count}, "
-                f"Duplike: {stats.skipped_duplicate_count}, "
-                f"Hata: {stats.failed_count}"
+                "Transfer summary -> "
+                f"Added: {stats.added_count}, "
+                f"Duplicates: {stats.skipped_duplicate_count}, "
+                f"Failures: {stats.failed_count}"
             )
         )
         append_history(
@@ -690,11 +692,11 @@ class PlaylistApp:
 
     def download_pdfs(self) -> None:
         if not self.visible_videos:
-            messagebox.showerror("Eksik İşlem", "Önce playlist videolarını getiriniz.")
+            messagebox.showerror("Missing Step", "Fetch playlist videos first.")
             return
 
         initial_dir = self.prefs.last_download_dir or str(Path.cwd())
-        selected_dir = filedialog.askdirectory(title="PDF çıktısı klasörü", initialdir=initial_dir)
+        selected_dir = filedialog.askdirectory(title="PDF output folder", initialdir=initial_dir)
         if not selected_dir:
             return
 
@@ -704,8 +706,8 @@ class PlaylistApp:
         resume_from_state = False
         if state_path.exists():
             resume_from_state = messagebox.askyesno(
-                "Devam Et",
-                "Önceki PDF işi için kayıt bulundu. Kaldığı yerden devam edilsin mi?",
+                "Resume",
+                "A saved state was found for a previous PDF job. Continue from where it stopped?",
             )
 
         def worker() -> None:
@@ -729,24 +731,24 @@ class PlaylistApp:
             )
             self._ui_call(lambda r=report: self._finish_pdf(r))
 
-        self._run_async("PDF indirme", worker)
+        self._run_async("PDF download", worker)
 
     def _finish_pdf(self, report) -> None:
         messagebox.showinfo(
-            "PDF İşlemi Tamamlandı",
+            "PDF Job Completed",
             (
-                f"Toplam video: {report.total_videos}\n"
-                f"Link bulunan video: {report.videos_with_links}\n"
-                f"Bulunan link: {report.discovered_links}\n"
-                f"İndirilen PDF: {report.downloaded_pdfs}\n"
-                f"Başarısız link: {len(report.failed_links)}\n"
-                f"ZIP: {report.zip_path or 'Yok'}\n"
-                f"Rapor: pdf_report.txt\n"
-                f"Başarısız link dosyası: failed_links.txt"
+                f"Total videos: {report.total_videos}\n"
+                f"Videos with links: {report.videos_with_links}\n"
+                f"Discovered links: {report.discovered_links}\n"
+                f"Downloaded PDFs: {report.downloaded_pdfs}\n"
+                f"Failed links: {len(report.failed_links)}\n"
+                f"ZIP: {report.zip_path or 'None'}\n"
+                f"Report: pdf_report.txt\n"
+                f"Failed links file: failed_links.txt"
             ),
         )
         self._append_log(
-            f"PDF özeti -> İndirilen: {report.downloaded_pdfs}, Başarısız: {len(report.failed_links)}"
+            f"PDF summary -> Downloaded: {report.downloaded_pdfs}, Failed: {len(report.failed_links)}"
         )
         append_history(
             "pdf_job_completed",
@@ -765,21 +767,21 @@ class PlaylistApp:
         path = filedialog.asksaveasfilename(
             defaultextension=".txt",
             filetypes=[("Text Files", "*.txt")],
-            title="Log dışa aktar",
+            title="Export log",
         )
         if not path:
             return
         Path(path).write_text(self.log_text.get("1.0", tk.END), encoding="utf-8")
-        messagebox.showinfo("Tamam", f"Log dışa aktarıldı:\n{path}")
+        messagebox.showinfo("Done", f"Log exported:\n{path}")
 
     def export_videos_csv(self) -> None:
         if not self.visible_videos:
-            messagebox.showwarning("Boş Liste", "Dışa aktarılacak video listesi yok.")
+            messagebox.showwarning("Empty List", "There is no video list to export.")
             return
         path = filedialog.asksaveasfilename(
             defaultextension=".csv",
             filetypes=[("CSV", "*.csv")],
-            title="Videoları CSV dışa aktar",
+            title="Export videos to CSV",
         )
         if not path:
             return
@@ -789,12 +791,12 @@ class PlaylistApp:
             writer.writerow(["index", "title", "video_id", "source_playlist_id"])
             for idx, video in enumerate(self.visible_videos, start=1):
                 writer.writerow([idx, video.title, video.video_id, video.source_playlist_id])
-        messagebox.showinfo("Tamam", f"CSV oluşturuldu:\n{path}")
+        messagebox.showinfo("Done", f"CSV created:\n{path}")
 
     def open_settings_dialog(self) -> None:
-        """Ağ ve bakım ayarlarını düzenleyen pencereyi açar."""
+        """Open the dialog used to edit network and maintenance settings."""
         dialog = tk.Toplevel(self.root)
-        dialog.title("Ayarlar")
+        dialog.title("Settings")
         dialog.transient(self.root)
         dialog.grab_set()
         dialog.configure(bg=self.theme.bg)
@@ -814,17 +816,17 @@ class PlaylistApp:
         history_max_size_var = tk.StringVar(value=str(self.prefs.history_max_size_mb))
         archive_max_files_var = tk.StringVar(value=str(self.prefs.archive_max_files))
 
-        ttk.Label(frame, text="Request timeout (sn):", style="Panel.TLabel").grid(
+        ttk.Label(frame, text="Request timeout (sec):", style="Panel.TLabel").grid(
             row=0, column=0, sticky="w", padx=(0, 8), pady=4
         )
         ttk.Entry(frame, textvariable=timeout_var, width=20).grid(row=0, column=1, sticky="w", pady=4)
 
-        ttk.Label(frame, text="Retry sayısı:", style="Panel.TLabel").grid(
+        ttk.Label(frame, text="Retry count:", style="Panel.TLabel").grid(
             row=1, column=0, sticky="w", padx=(0, 8), pady=4
         )
         ttk.Entry(frame, textvariable=retry_var, width=20).grid(row=1, column=1, sticky="w", pady=4)
 
-        ttk.Label(frame, text="Backoff çarpanı:", style="Panel.TLabel").grid(
+        ttk.Label(frame, text="Backoff factor:", style="Panel.TLabel").grid(
             row=2, column=0, sticky="w", padx=(0, 8), pady=4
         )
         ttk.Entry(frame, textvariable=backoff_var, width=20).grid(row=2, column=1, sticky="w", pady=4)
@@ -836,19 +838,19 @@ class PlaylistApp:
 
         ttk.Checkbutton(
             frame,
-            text="Transfer için dry-run varsayılan açık",
+            text="Enable dry-run by default for transfers",
             variable=dry_run_default_var,
             style="Panel.TLabel",
         ).grid(row=4, column=0, columnspan=2, sticky="w", pady=(8, 4))
 
         ttk.Checkbutton(
             frame,
-            text="Açılışta housekeeping (history rotate)",
+            text="Run housekeeping at startup (history rotate)",
             variable=housekeeping_enabled_var,
             style="Panel.TLabel",
         ).grid(row=5, column=0, columnspan=2, sticky="w", pady=(4, 4))
 
-        ttk.Label(frame, text="History retention (gün):", style="Panel.TLabel").grid(
+        ttk.Label(frame, text="History retention (days):", style="Panel.TLabel").grid(
             row=6, column=0, sticky="w", padx=(0, 8), pady=4
         )
         ttk.Entry(frame, textvariable=retention_days_var, width=20).grid(
@@ -857,7 +859,7 @@ class PlaylistApp:
 
         ttk.Checkbutton(
             frame,
-            text="Haftalık otomatik history arşivle",
+            text="Enable weekly automatic history archiving",
             variable=weekly_archive_var,
             style="Panel.TLabel",
         ).grid(row=7, column=0, columnspan=2, sticky="w", pady=(4, 4))
@@ -869,7 +871,7 @@ class PlaylistApp:
             row=8, column=1, sticky="w", pady=4
         )
 
-        ttk.Label(frame, text="Max archive file sayısı:", style="Panel.TLabel").grid(
+        ttk.Label(frame, text="Max archive file count:", style="Panel.TLabel").grid(
             row=9, column=0, sticky="w", padx=(0, 8), pady=4
         )
         ttk.Entry(frame, textvariable=archive_max_files_var, width=20).grid(
@@ -890,8 +892,11 @@ class PlaylistApp:
                 archive_max_files = int(archive_max_files_var.get().strip())
             except ValueError:
                 messagebox.showerror(
-                    "Hatalı Ayar",
-                    "Timeout/retry/backoff/throttle/retention/max_size/archive_count alanları sayısal olmalı.",
+                    "Invalid Settings",
+                    (
+                        "Timeout/retry/backoff/throttle/retention/max_size/archive_count "
+                        "fields must be numeric."
+                    ),
                 )
                 return
 
@@ -905,8 +910,11 @@ class PlaylistApp:
                 or archive_max_files < 1
             ):
                 messagebox.showerror(
-                    "Hatalı Ayar",
-                    "Timeout >= 5, retry >= 0, backoff > 0, throttle >= 0, retention >= 1, max_size > 0, archive_count >= 1 olmalıdır.",
+                    "Invalid Settings",
+                    (
+                        "Timeout >= 5, retry >= 0, backoff > 0, throttle >= 0, "
+                        "retention >= 1, max_size > 0, archive_count >= 1."
+                    ),
                 )
                 return
 
@@ -936,7 +944,7 @@ class PlaylistApp:
             save_preferences(self._current_preferences())
             self._append_log(
                 (
-                    "Ayarlar güncellendi: "
+                    "Settings updated: "
                     f"timeout={timeout}s retry={retries} "
                     f"backoff={backoff} throttle={throttle}s "
                     f"startup_housekeeping={self.prefs.startup_housekeeping_enabled} "
@@ -948,13 +956,13 @@ class PlaylistApp:
             )
             dialog.destroy()
 
-        ttk.Button(button_row, text="Kaydet", command=save_settings).pack(side="left", padx=(0, 6))
-        ttk.Button(button_row, text="Vazgeç", command=dialog.destroy).pack(side="left")
+        ttk.Button(button_row, text="Save", command=save_settings).pack(side="left", padx=(0, 6))
+        ttk.Button(button_row, text="Cancel", command=dialog.destroy).pack(side="left")
 
     def show_retry_details_dialog(self) -> None:
-        """Son işlemde oluşan retry/backoff detaylarını gösterir."""
+        """Show retry/backoff details collected from the last operation."""
         dialog = tk.Toplevel(self.root)
-        dialog.title("Retry Detayları")
+        dialog.title("Retry Details")
         dialog.transient(self.root)
         dialog.configure(bg=self.theme.bg)
         dialog.geometry("900x380")
@@ -965,7 +973,7 @@ class PlaylistApp:
         text.pack(fill="both", expand=True)
 
         if not self.last_retry_events:
-            text.insert("1.0", "Son işlem için retry detayı yok.")
+            text.insert("1.0", "No retry details were recorded for the last operation.")
         else:
             for evt in self.last_retry_events:
                 status = evt.status if evt.status is not None else "-"
@@ -980,7 +988,7 @@ class PlaylistApp:
         text.configure(state="disabled")
 
     def show_maintenance_dialog(self) -> None:
-        """Bakım özeti, arşiv araçları ve sağlık raporu işlemlerini gösterir."""
+        """Display maintenance summary, archive tools, and health reporting actions."""
         dialog = tk.Toplevel(self.root)
         dialog.title("Maintenance")
         dialog.transient(self.root)
@@ -998,7 +1006,7 @@ class PlaylistApp:
 
         archive_panel = ttk.Frame(top, style="Panel.TFrame")
         archive_panel.pack(fill="both", expand=True)
-        ttk.Label(archive_panel, text="Arşiv Dosyaları:", style="Panel.TLabel").pack(anchor="w")
+        ttk.Label(archive_panel, text="Archive Files:", style="Panel.TLabel").pack(anchor="w")
         self.archive_listbox = tk.Listbox(
             archive_panel,
             selectmode=tk.EXTENDED,
@@ -1022,7 +1030,7 @@ class PlaylistApp:
                     {
                         "timestamp": item.get("timestamp", "-"),
                         "removed": payload.get("removed", "0"),
-                        "archive_created": payload.get("archive_created", "Hayır"),
+                        "archive_created": payload.get("archive_created", "No"),
                         "archives_removed": payload.get("archives_removed", "0"),
                     }
                 )
@@ -1056,13 +1064,13 @@ class PlaylistApp:
             report = collect_health_report()
             text.configure(state="normal")
             text.delete("1.0", tk.END)
-            text.insert(tk.END, "Son Startup Housekeeping Raporu\n")
+            text.insert(tk.END, "Latest Startup Housekeeping Report\n")
             text.insert(tk.END, "-" * 38 + "\n")
             for key, value in report.get("housekeeping", {}).items():
                 text.insert(tk.END, f"{key}: {value}\n")
-            text.insert(tk.END, f"\nAktif history boyutu (MB): {report['history_file_size_mb']}\n")
-            text.insert(tk.END, f"Arşiv dosya sayısı: {report['archive_file_count']}\n")
-            text.insert(tk.END, "\nSon 5 Housekeeping Trendi:\n")
+            text.insert(tk.END, f"\nActive history size (MB): {report['history_file_size_mb']}\n")
+            text.insert(tk.END, f"Archive file count: {report['archive_file_count']}\n")
+            text.insert(tk.END, "\nLast 5 housekeeping trend entries:\n")
             for item in report.get("housekeeping_trend_last_5", []):
                 text.insert(
                     tk.END,
@@ -1078,7 +1086,7 @@ class PlaylistApp:
         def run_housekeeping_now() -> None:
             self._run_startup_housekeeping()
             self.root.after(700, render_report)
-            messagebox.showinfo("Tamam", "Maintenance housekeeping arka planda başlatıldı.")
+            messagebox.showinfo("Done", "Maintenance housekeeping started in background.")
 
         def export_health_report(as_json: bool) -> None:
             report = collect_health_report()
@@ -1086,7 +1094,7 @@ class PlaylistApp:
                 path = filedialog.asksaveasfilename(
                     defaultextension=".json",
                     filetypes=[("JSON", "*.json")],
-                    title="Health report JSON dışa aktar",
+                    title="Export health report as JSON",
                 )
                 if not path:
                     return
@@ -1095,7 +1103,7 @@ class PlaylistApp:
                 path = filedialog.asksaveasfilename(
                     defaultextension=".txt",
                     filetypes=[("Text", "*.txt")],
-                    title="Health report TXT dışa aktar",
+                    title="Export health report as TXT",
                 )
                 if not path:
                     return
@@ -1106,21 +1114,21 @@ class PlaylistApp:
                 lines.append(f"archive_file_count: {report['archive_file_count']}")
                 lines.append(f"preferences: {report['preferences']}")
                 Path(path).write_text("\n".join(lines), encoding="utf-8")
-            messagebox.showinfo("Tamam", f"Health report dışa aktarıldı:\n{path}")
+            messagebox.showinfo("Done", f"Health report exported:\n{path}")
 
         def open_archive_folder() -> None:
             archive_dir = get_archive_dir()
             try:
                 os.startfile(str(archive_dir))  # type: ignore[attr-defined]
             except Exception as exc:
-                messagebox.showerror("Hata", f"Arşiv klasörü açılamadı: {exc}")
+                messagebox.showerror("Error", f"Could not open archive folder: {exc}")
 
         def delete_selected_archives() -> None:
             selected = list(self.archive_listbox.curselection())
             if not selected:
-                messagebox.showwarning("Seçim Yok", "Silmek için en az bir arşiv dosyası seçin.")
+                messagebox.showwarning("No Selection", "Select at least one archive file to delete.")
                 return
-            if not messagebox.askyesno("Onay", "Seçili arşiv dosyaları silinsin mi?"):
+            if not messagebox.askyesno("Confirm", "Delete the selected archive files?"):
                 return
             removed = 0
             for index in selected:
@@ -1129,33 +1137,33 @@ class PlaylistApp:
                     removed += 1
             refresh_archive_list()
             render_report()
-            messagebox.showinfo("Tamam", f"{removed} arşiv dosyası silindi.")
+            messagebox.showinfo("Done", f"Deleted {removed} archive file(s).")
 
         def preview_selected_archive() -> None:
             selected = list(self.archive_listbox.curselection())
             if len(selected) != 1:
-                messagebox.showwarning("Seçim", "Önizleme için tek bir arşiv dosyası seçin.")
+                messagebox.showwarning("Selection", "Select exactly one archive file for preview.")
                 return
             index = selected[0]
             if index < 0 or index >= len(archive_file_paths):
-                messagebox.showerror("Hata", "Seçilen arşiv dosyası bulunamadı.")
+                messagebox.showerror("Error", "Selected archive file was not found.")
                 return
             target = archive_file_paths[index]
             try:
                 lines = target.read_text(encoding="utf-8").splitlines()
             except OSError as exc:
-                messagebox.showerror("Hata", f"Arşiv okunamadı: {exc}")
+                messagebox.showerror("Error", f"Could not read archive: {exc}")
                 return
 
             preview = tk.Toplevel(dialog)
-            preview.title(f"Arşiv Önizleme - {target.name}")
+            preview.title(f"Archive Preview - {target.name}")
             preview.transient(dialog)
             preview.geometry("940x560")
             preview.configure(bg=self.theme.bg)
 
             controls = ttk.Frame(preview, style="Panel.TFrame", padding=(10, 8))
             controls.pack(fill="x")
-            ttk.Label(controls, text="Ara:", style="Panel.TLabel").pack(side="left")
+            ttk.Label(controls, text="Search:", style="Panel.TLabel").pack(side="left")
             search_var = tk.StringVar()
             search_entry = ttk.Entry(controls, textvariable=search_var, width=40)
             search_entry.pack(side="left", padx=(6, 10))
@@ -1164,17 +1172,17 @@ class PlaylistApp:
             view_mode_var = tk.StringVar(value="raw")
             ttk.Checkbutton(
                 controls,
-                text="JSONL pretty göster",
+                text="Show JSONL pretty",
                 variable=pretty_var,
                 style="Panel.TLabel",
             ).pack(side="left")
             ttk.Checkbutton(
                 controls,
-                text="Satır numarası",
+                text="Line numbers",
                 variable=line_numbers_var,
                 style="Panel.TLabel",
             ).pack(side="left", padx=(8, 0))
-            ttk.Label(controls, text="Görünüm:", style="Panel.TLabel").pack(side="left", padx=(8, 4))
+            ttk.Label(controls, text="View:", style="Panel.TLabel").pack(side="left", padx=(8, 4))
             view_mode = ttk.Combobox(
                 controls,
                 textvariable=view_mode_var,
@@ -1209,13 +1217,13 @@ class PlaylistApp:
             def copy_visible_text() -> None:
                 current = preview_text.get("1.0", tk.END).rstrip("\n")
                 if not current.strip():
-                    messagebox.showwarning("Boş", "Kopyalanacak içerik yok.")
+                    messagebox.showwarning("Empty", "There is no content to copy.")
                     return
                 preview.clipboard_clear()
                 preview.clipboard_append(current)
-                messagebox.showinfo("Tamam", "Görünen içerik panoya kopyalandı.")
+                messagebox.showinfo("Done", "Visible content copied to clipboard.")
 
-            ttk.Button(controls, text="Görüneni Kopyala", command=copy_visible_text).pack(
+            ttk.Button(controls, text="Copy Visible", command=copy_visible_text).pack(
                 side="right", padx=(6, 0)
             )
 
@@ -1223,7 +1231,7 @@ class PlaylistApp:
                 preview_text.configure(state="normal")
                 preview_text.delete("1.0", tk.END)
                 if not lines:
-                    preview_text.insert("1.0", "Arşiv dosyası boş.")
+                    preview_text.insert("1.0", "Archive file is empty.")
                     preview_text.configure(state="disabled")
                     return
 
@@ -1247,7 +1255,7 @@ class PlaylistApp:
                 if len(lines) > max_lines:
                     preview_text.insert(
                         tk.END,
-                        f"\n\n... (toplam {len(lines)} satır, sadece ilk {max_lines} gösterildi)",
+                        f"\n\n... (total {len(lines)} lines, showing first {max_lines} only)",
                     )
                 preview_text.configure(state="disabled")
                 highlight_search_matches()
@@ -1276,59 +1284,59 @@ class PlaylistApp:
         def export_selected_archive() -> None:
             selected = list(self.archive_listbox.curselection())
             if len(selected) != 1:
-                messagebox.showwarning("Seçim", "Dışa aktarma için tek bir arşiv dosyası seçin.")
+                messagebox.showwarning("Selection", "Select exactly one archive file for export.")
                 return
             index = selected[0]
             if index < 0 or index >= len(archive_file_paths):
-                messagebox.showerror("Hata", "Seçilen arşiv dosyası bulunamadı.")
+                messagebox.showerror("Error", "Selected archive file was not found.")
                 return
             source = archive_file_paths[index]
             path = filedialog.asksaveasfilename(
                 defaultextension=".jsonl",
                 filetypes=[("JSONL", "*.jsonl"), ("All Files", "*.*")],
                 initialfile=source.name,
-                title="Seçili arşivi dışa aktar",
+                title="Export selected archive",
             )
             if not path:
                 return
             try:
                 Path(path).write_text(source.read_text(encoding="utf-8"), encoding="utf-8")
             except OSError as exc:
-                messagebox.showerror("Hata", f"Arşiv dışa aktarılamadı: {exc}")
+                messagebox.showerror("Error", f"Could not export archive: {exc}")
                 return
-            messagebox.showinfo("Tamam", f"Arşiv dışa aktarıldı:\n{path}")
+            messagebox.showinfo("Done", f"Archive exported:\n{path}")
 
         buttons = ttk.Frame(frame, style="Panel.TFrame")
         buttons.pack(fill="x", pady=(8, 0))
-        ttk.Button(buttons, text="Housekeeping Şimdi Çalıştır", command=run_housekeeping_now).pack(
+        ttk.Button(buttons, text="Run Housekeeping Now", command=run_housekeeping_now).pack(
             side="left"
         )
-        ttk.Button(buttons, text="Raporu TXT Aktar", command=lambda: export_health_report(False)).pack(
+        ttk.Button(buttons, text="Export Report as TXT", command=lambda: export_health_report(False)).pack(
             side="left", padx=(6, 0)
         )
-        ttk.Button(buttons, text="Raporu JSON Aktar", command=lambda: export_health_report(True)).pack(
+        ttk.Button(buttons, text="Export Report as JSON", command=lambda: export_health_report(True)).pack(
             side="left", padx=(6, 0)
         )
-        ttk.Button(buttons, text="Arşiv Klasörünü Aç", command=open_archive_folder).pack(
+        ttk.Button(buttons, text="Open Archive Folder", command=open_archive_folder).pack(
             side="left", padx=(6, 0)
         )
-        ttk.Button(buttons, text="Seçili Arşivi Dışa Aktar", command=export_selected_archive).pack(
+        ttk.Button(buttons, text="Export Selected Archive", command=export_selected_archive).pack(
             side="left", padx=(6, 0)
         )
-        ttk.Button(buttons, text="Seçili Arşivi Önizle", command=preview_selected_archive).pack(
+        ttk.Button(buttons, text="Preview Selected Archive", command=preview_selected_archive).pack(
             side="left", padx=(6, 0)
         )
-        ttk.Button(buttons, text="Seçili Arşivleri Sil", command=delete_selected_archives).pack(
+        ttk.Button(buttons, text="Delete Selected Archives", command=delete_selected_archives).pack(
             side="left", padx=(6, 0)
         )
 
         render_report()
 
     def show_history_dialog(self) -> None:
-        """Filtrelenebilir işlem geçmişini gösterir ve CSV dışa aktarım sunar."""
+        """Show filterable operation history and CSV export tools."""
         entries = load_history(limit=500)
         dialog = tk.Toplevel(self.root)
-        dialog.title("İşlem Geçmişi")
+        dialog.title("Operation History")
         dialog.transient(self.root)
         dialog.configure(bg=self.theme.bg)
         dialog.geometry("940x520")
@@ -1349,7 +1357,7 @@ class PlaylistApp:
         )
         event_combo.pack(side="left", padx=(6, 10))
 
-        ttk.Label(controls, text="Ara:", style="Panel.TLabel").pack(side="left")
+        ttk.Label(controls, text="Search:", style="Panel.TLabel").pack(side="left")
         search_entry = ttk.Entry(controls, textvariable=search_var, width=40)
         search_entry.pack(side="left", padx=(6, 10))
 
@@ -1380,7 +1388,7 @@ class PlaylistApp:
                 filtered_entries.append(item)
 
             if not filtered_entries:
-                text.insert("1.0", "Filtre sonucu kayıt bulunamadı.")
+                text.insert("1.0", "No records matched the current filter.")
             else:
                 for item in filtered_entries:
                     ts = item.get("timestamp", "-")
@@ -1391,12 +1399,12 @@ class PlaylistApp:
 
         def export_filtered_csv() -> None:
             if not filtered_entries:
-                messagebox.showwarning("Boş Sonuç", "Dışa aktarılacak geçmiş kaydı yok.")
+                messagebox.showwarning("Empty Result", "There are no history records to export.")
                 return
             path = filedialog.asksaveasfilename(
                 defaultextension=".csv",
                 filetypes=[("CSV", "*.csv")],
-                title="Geçmişi CSV dışa aktar",
+                title="Export history to CSV",
             )
             if not path:
                 return
@@ -1405,26 +1413,26 @@ class PlaylistApp:
                 writer.writerow(["timestamp", "event", "payload"])
                 for item in filtered_entries:
                     writer.writerow([item.get("timestamp", ""), item.get("event", ""), item.get("payload", {})])
-            messagebox.showinfo("Tamam", f"Geçmiş CSV dışa aktarıldı:\n{path}")
+            messagebox.showinfo("Done", f"History CSV exported:\n{path}")
 
         def archive_current_history() -> None:
             archive_path = archive_history()
             if archive_path is None:
-                messagebox.showinfo("Bilgi", "Arşivlenecek geçmiş kaydı bulunamadı.")
+                messagebox.showinfo("Info", "No history records available for archiving.")
                 return
             reload_entries()
             apply_filter()
-            messagebox.showinfo("Tamam", f"Geçmiş arşivlendi:\n{archive_path}")
+            messagebox.showinfo("Done", f"History archived:\n{archive_path}")
 
         def rotate_old_history() -> None:
             kept, removed = rotate_history(days=self.prefs.history_retention_days)
             reload_entries()
             apply_filter()
             messagebox.showinfo(
-                "Rotate Tamamlandı",
+                "Rotation Completed",
                 (
-                    f"{self.prefs.history_retention_days} günden eski kayıtlar temizlendi.\n"
-                    f"Kalan: {kept}\nSilinen: {removed}"
+                    f"Records older than {self.prefs.history_retention_days} days were removed.\n"
+                    f"Kept: {kept}\nRemoved: {removed}"
                 ),
             )
 
@@ -1435,23 +1443,23 @@ class PlaylistApp:
             removed = clear_state_files(extra_paths=extra_state)
             if removed:
                 removed_lines = "\n".join(str(item) for item in removed)
-                messagebox.showinfo("Tamam", f"State dosyaları silindi:\n{removed_lines}")
+                messagebox.showinfo("Done", f"State files deleted:\n{removed_lines}")
             else:
-                messagebox.showinfo("Bilgi", "Silinecek state dosyası bulunamadı.")
+                messagebox.showinfo("Info", "No state files found to delete.")
 
         buttons = ttk.Frame(root_frame, style="Panel.TFrame")
         buttons.pack(fill="x", pady=(8, 0))
-        ttk.Button(buttons, text="Filtreyi Uygula", command=apply_filter).pack(side="left")
-        ttk.Button(buttons, text="Filtreyi CSV Aktar", command=export_filtered_csv).pack(
+        ttk.Button(buttons, text="Apply Filter", command=apply_filter).pack(side="left")
+        ttk.Button(buttons, text="Export Filter to CSV", command=export_filtered_csv).pack(
             side="left", padx=(6, 0)
         )
-        ttk.Button(buttons, text="Geçmişi Arşivle", command=archive_current_history).pack(
+        ttk.Button(buttons, text="Archive History", command=archive_current_history).pack(
             side="left", padx=(6, 0)
         )
-        ttk.Button(buttons, text="30+ Gün Rotate", command=rotate_old_history).pack(
+        ttk.Button(buttons, text="Rotate 30+ Days", command=rotate_old_history).pack(
             side="left", padx=(6, 0)
         )
-        ttk.Button(buttons, text="State Dosyalarını Temizle", command=clear_state_files_action).pack(
+        ttk.Button(buttons, text="Clear State Files", command=clear_state_files_action).pack(
             side="left", padx=(6, 0)
         )
 

@@ -1,4 +1,4 @@
-"""YouTube API ile konuşan servis katmanı."""
+"""Service layer that communicates with the YouTube API."""
 
 from __future__ import annotations
 
@@ -32,16 +32,16 @@ logger = logging.getLogger(__name__)
 
 
 class YouTubeServiceError(Exception):
-    """YouTube servisinde beklenen hatalar için temel sınıf."""
+    """Base class for expected YouTube service errors."""
 
 
 class AuthError(YouTubeServiceError):
-    """OAuth kurulumu veya kimlik doğrulaması başarısız olduğunda fırlatılır."""
+    """Raised when OAuth setup or authentication fails."""
 
 
 @dataclass(frozen=True)
 class VideoItem:
-    """UI ile servis arasında taşınan sade video modeli."""
+    """Simple video model passed between UI and service layers."""
 
     video_id: str
     title: str
@@ -50,7 +50,7 @@ class VideoItem:
 
 @dataclass(frozen=True)
 class TransferStats:
-    """Playlist transferinin özet sonuçları."""
+    """Summary statistics for a playlist transfer."""
 
     target_playlist_id: str
     target_created: bool
@@ -64,7 +64,7 @@ class TransferStats:
 
 @dataclass(frozen=True)
 class RetryPolicy:
-    """API çağrıları için retry ve backoff ayarları."""
+    """Retry and backoff settings for API requests."""
 
     timeout_seconds: int = REQUEST_TIMEOUT_SECONDS
     retry_total: int = RETRY_TOTAL
@@ -74,7 +74,7 @@ class RetryPolicy:
 
 @dataclass(frozen=True)
 class RetryEvent:
-    """Tek bir retry/backoff olayının kayıt modeli."""
+    """Record model for a single retry/backoff event."""
 
     operation: str
     attempt: int
@@ -85,7 +85,7 @@ class RetryEvent:
 
 
 class YouTubeService:
-    """YouTube API çağrılarının tamamını tek noktada yönetir."""
+    """Single access point for all YouTube API calls."""
 
     def __init__(
         self,
@@ -115,7 +115,7 @@ class YouTubeService:
         retry_backoff_factor: float,
         transfer_throttle_seconds: float,
     ) -> None:
-        """Ayarlar ekranından gelen retry politikasını anında günceller."""
+        """Apply retry policy updates from the settings dialog."""
         self.retry_policy = RetryPolicy(
             timeout_seconds=max(5, int(timeout_seconds)),
             retry_total=max(0, int(retry_total)),
@@ -124,7 +124,7 @@ class YouTubeService:
         )
 
     def _execute(self, request_builder: Callable[[], object], operation_name: str) -> dict:
-        """API isteğini kontrollü retry/backoff ile çalıştırır."""
+        """Execute an API request with controlled retry/backoff behavior."""
         attempts = self.retry_policy.retry_total + 1
         for attempt in range(1, attempts + 1):
             try:
@@ -156,7 +156,7 @@ class YouTubeService:
                 time.sleep(delay)
             except (TimeoutError, OSError) as exc:
                 if attempt >= attempts:
-                    raise YouTubeServiceError(f"{operation_name} başarısız: {exc}") from exc
+                    raise YouTubeServiceError(f"{operation_name} failed: {exc}") from exc
                 delay = self.retry_policy.retry_backoff_factor * (2 ** (attempt - 1))
                 self._retry_events.append(
                     RetryEvent(
@@ -169,23 +169,23 @@ class YouTubeService:
                     )
                 )
                 logger.warning(
-                    "%s ağ hatası, retry %s/%s after %.1fs",
+                    "%s network error, retry %s/%s after %.1fs",
                     operation_name,
                     attempt,
                     attempts,
                     delay,
                 )
                 time.sleep(delay)
-        raise YouTubeServiceError(f"{operation_name} başarısız.")
+        raise YouTubeServiceError(f"{operation_name} failed.")
 
     def consume_retry_events(self) -> list[RetryEvent]:
-        """Biriken retry olaylarını döndürür ve listeyi sıfırlar."""
+        """Return accumulated retry events and clear the buffer."""
         collected_events = list(self._retry_events)
         self._retry_events.clear()
         return collected_events
 
     def connect(self) -> None:
-        """Kimlik doğrulamasını yapıp YouTube istemcisini başlatır."""
+        """Authenticate and initialize the YouTube client."""
         credentials = None
         if self.token_path.exists():
             with self.token_path.open("rb") as token_file:
@@ -196,24 +196,24 @@ class YouTubeService:
                 credentials.refresh(Request())
             else:
                 if not self.client_secret_path.exists():
-                    raise AuthError(f"{self.client_secret_path.name} bulunamadı.")
+                    raise AuthError(f"{self.client_secret_path.name} was not found.")
                 flow = InstalledAppFlow.from_client_secrets_file(str(self.client_secret_path), SCOPES)
                 credentials = flow.run_local_server(port=0)
             with self.token_path.open("wb") as token_file:
                 pickle.dump(credentials, token_file)
 
         self._youtube = build(YOUTUBE_API_SERVICE_NAME, YOUTUBE_API_VERSION, credentials=credentials)
-        logger.info("YouTube API bağlantısı kuruldu.")
+        logger.info("Connected to YouTube API.")
 
     @property
     def client(self):
-        """Hazır durumdaki YouTube istemcisini döndürür."""
+        """Return the initialized YouTube client."""
         if self._youtube is None:
-            raise AuthError("YouTube servisi henüz başlatılmadı.")
+            raise AuthError("YouTube service has not been initialized yet.")
         return self._youtube
 
     def fetch_playlist_items(self, playlist_id: str, search_text: str = "") -> list[VideoItem]:
-        """Playlist videolarını çeker, istenirse başlığa göre filtreler."""
+        """Fetch playlist videos and optionally filter by title."""
         matched_videos: list[VideoItem] = []
         next_page_token = None
         terms = build_search_terms(search_text)
@@ -245,7 +245,7 @@ class YouTubeService:
         return matched_videos
 
     def fetch_existing_video_ids(self, playlist_id: str) -> set[str]:
-        """Hedef playlistteki video kimliklerini duplike kontrolü için döndürür."""
+        """Return video IDs in the target playlist for duplicate checks."""
         existing_video_ids: set[str] = set()
         next_page_token = None
         while True:
@@ -275,14 +275,14 @@ class YouTubeService:
         return existing_video_ids
 
     def create_playlist(self, title: str, description: str = "") -> str:
-        """Yeni private playlist oluşturup kimliğini döndürür."""
+        """Create a new private playlist and return its ID."""
         response = self._execute(
             lambda: self.client.playlists().insert(
                 part="snippet,status",
                 body={
                     "snippet": {
                         "title": title,
-                        "description": description or "Uygulama tarafından otomatik oluşturuldu.",
+                        "description": description or "Automatically created by the application.",
                     },
                     "status": {"privacyStatus": "private"},
                 },
@@ -292,7 +292,7 @@ class YouTubeService:
         return response["id"]
 
     def preview_add_videos(self, video_ids: list[str], target_playlist_id: str | None) -> TransferStats:
-        """Gerçek ekleme yapmadan transfer sonucunu hesaplar."""
+        """Calculate transfer outcome without creating actual inserts."""
         seen_video_ids: set[str] = set()
         unique_ids: list[str] = []
         for video_id in video_ids:
@@ -302,7 +302,7 @@ class YouTubeService:
 
         if not target_playlist_id:
             return TransferStats(
-                target_playlist_id="(yeni playlist oluşturulacak)",
+                target_playlist_id="(a new playlist will be created)",
                 target_created=True,
                 requested_count=len(video_ids),
                 added_count=len(unique_ids),
@@ -338,7 +338,7 @@ class YouTubeService:
         resume_from_state: bool = False,
         state_path: Path | None = None,
     ) -> TransferStats:
-        """Videoları hedef playlist'e ekler; duplike kontrolü ve iptali destekler."""
+        """Add videos to a target playlist with duplicate checks and cancellation support."""
         target_created = False
         failures = 0
         skipped_duplicates = 0
@@ -361,10 +361,10 @@ class YouTubeService:
             resumed = True
 
         if not target_playlist_id:
-            title = target_playlist_name.strip() or "Python Otomatik Alt Liste"
+            title = target_playlist_name.strip() or "Python Auto Sub Playlist"
             target_playlist_id = self.create_playlist(title=title)
             target_created = True
-            logger.info("Yeni hedef playlist oluşturuldu: %s", target_playlist_id)
+            logger.info("Created new target playlist: %s", target_playlist_id)
             if state_path:
                 self._save_transfer_state(
                     state_path=state_path,
@@ -381,7 +381,7 @@ class YouTubeService:
 
         for position, video_id in enumerate(video_ids, start=1):
             if cancel_requested():
-                logger.warning("Transfer user tarafından iptal edildi.")
+                logger.warning("Transfer was cancelled by user.")
                 cancelled = True
                 break
 
@@ -421,7 +421,7 @@ class YouTubeService:
                 )
             except HttpError:
                 failures += 1
-                logger.exception("Video hedef playlist'e eklenemedi: %s", video_id)
+                logger.exception("Could not add video to target playlist: %s", video_id)
                 dynamic_throttle = min(THROTTLE_MAX_SECONDS, max(dynamic_throttle, 0.1) * 1.5)
                 processed_video_ids.add(video_id)
                 if state_path:
@@ -475,7 +475,7 @@ class YouTubeService:
         cancel_requested: Callable[[], bool],
         progress_cb: Callable[[int, int], None],
     ) -> dict[str, str]:
-        """Video açıklamalarını `video_id -> description` haritası olarak döndürür."""
+        """Return video descriptions as a `video_id -> description` mapping."""
         descriptions: dict[str, str] = {}
         unique_ids = list(dict.fromkeys(video_ids))
         total = len(unique_ids)
@@ -483,7 +483,7 @@ class YouTubeService:
 
         for batch_offset in range(0, len(unique_ids), MAX_API_RESULTS):
             if cancel_requested():
-                logger.warning("Açıklama çekme işlemi iptal edildi.")
+                logger.warning("Description fetch operation was cancelled.")
                 break
 
             batch = unique_ids[batch_offset : batch_offset + MAX_API_RESULTS]
@@ -505,7 +505,7 @@ class YouTubeService:
                         continue
                     descriptions[video_id] = item.get("snippet", {}).get("description", "")
             except HttpError:
-                logger.exception("Video açıklama batch alınamadı.")
+                logger.exception("Could not fetch video description batch.")
             finally:
                 processed += len(batch)
                 progress_cb(processed, total)
@@ -523,7 +523,7 @@ class YouTubeService:
         skipped_duplicate_count: int,
         failed_count: int,
     ) -> None:
-        """Transfer state bilgisini diske yazar."""
+        """Write transfer state data to disk."""
         payload = {
             "target_playlist_id": target_playlist_id,
             "target_created": target_created,
@@ -536,7 +536,7 @@ class YouTubeService:
 
     @staticmethod
     def _load_transfer_state(state_path: Path) -> dict:
-        """Daha önce kaydedilmiş transfer state bilgisini okur."""
+        """Read previously saved transfer state data."""
         try:
             return json.loads(state_path.read_text(encoding="utf-8"))
         except (OSError, json.JSONDecodeError):

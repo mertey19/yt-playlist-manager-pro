@@ -1,4 +1,4 @@
-"""PDF servisi için temel davranış testleri."""
+"""Core behavior tests for the PDF service."""
 
 from __future__ import annotations
 
