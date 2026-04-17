@@ -1,0 +1,11 @@
+__pycache__/
+*.py[cod]
+.pytest_cache/
+.venv/
+venv/
+build/
+dist/
+*.spec.bak
+token.pickle
+client_secret.json
+.yt_playlist_tool/
