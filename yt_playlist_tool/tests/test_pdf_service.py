@@ -1,4 +1,4 @@
-"""Unit tests for PDF service deterministic behavior."""
+"""PDF servisi için temel davranış testleri."""
 
 from __future__ import annotations
 
@@ -21,7 +21,7 @@ def test_choose_folder_falls_back_to_common_token() -> None:
     assert folder == "kamp"
 
 
-def test_create_zip_with_topic_folders_is_deterministic(tmp_path: Path) -> None:
+def test_create_zip_with_topic_folders_consistent_output(tmp_path: Path) -> None:
     service = PdfService()
     files = []
     names = ["limit_notlari_1.pdf", "limit_notlari_2.pdf", "geometri_ozet.pdf"]

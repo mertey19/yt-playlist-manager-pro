@@ -47,14 +47,14 @@ def test_archive_history_moves_content(tmp_path: Path, monkeypatch) -> None:
     assert history_path.read_text(encoding="utf-8") == ""
 
 
-def test_clear_runtime_state_files_removes_known_files(tmp_path: Path, monkeypatch) -> None:
+def test_clear_state_files_removes_known_files(tmp_path: Path, monkeypatch) -> None:
     monkeypatch.setattr(helpers, "get_app_dir", lambda: tmp_path)
     transfer_state = tmp_path / "transfer_state.json"
     transfer_state.write_text("{}", encoding="utf-8")
     extra = tmp_path / "job_state.json"
     extra.write_text("{}", encoding="utf-8")
 
-    removed = helpers.clear_runtime_state_files(extra_paths=[extra])
+    removed = helpers.clear_state_files(extra_paths=[extra])
     removed_set = {p.name for p in removed}
     assert "transfer_state.json" in removed_set
     assert "job_state.json" in removed_set

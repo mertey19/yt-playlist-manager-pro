@@ -1,4 +1,4 @@
-"""Main ttk-based desktop application UI."""
+"""ttk tabanlı ana masaüstü arayüzü."""
 
 from __future__ import annotations
 
@@ -36,7 +36,7 @@ from yt_playlist_tool.utils.helpers import (
     archive_history,
     archive_history_if_oversize,
     append_history,
-    clear_runtime_state_files,
+    clear_state_files,
     get_history_file_size_mb,
     get_archive_dir,
     list_archive_files,
@@ -60,7 +60,7 @@ logger = logging.getLogger(__name__)
 
 
 class PlaylistApp:
-    """Controller + UI composition for the playlist management tool."""
+    """Playlist yönetim aracı için arayüz ve akış kontrolünü bir arada tutar."""
 
     def __init__(self, root: tk.Tk) -> None:
         self.root = root
@@ -305,7 +305,7 @@ class PlaylistApp:
         self.range_entry.insert(0, self.prefs.range_text)
 
     def _run_startup_housekeeping(self) -> None:
-        """Perform automatic maintenance tasks at startup."""
+        """Uygulama açılışında bakım görevlerini arka planda çalıştırır."""
         if not self.prefs.startup_housekeeping_enabled:
             self.last_housekeeping_report = {"status": "Startup housekeeping kapalı."}
             return
@@ -442,7 +442,7 @@ class PlaylistApp:
         self._set_busy(True)
         self._set_status(f"{task_name} çalışıyor...")
 
-        def wrapper() -> None:
+        def run_task_wrapper() -> None:
             try:
                 worker()
             finally:
@@ -458,7 +458,7 @@ class PlaylistApp:
                 self._ui_call(lambda: self._set_status("Hazır"))
                 self._ui_call(lambda: self._set_progress(0, 0))
 
-        self.worker_thread = threading.Thread(target=wrapper, daemon=True)
+        self.worker_thread = threading.Thread(target=run_task_wrapper, daemon=True)
         self.worker_thread.start()
 
     def cancel_current_task(self) -> None:
@@ -483,17 +483,26 @@ class PlaylistApp:
             duplicate_skipped = 0
             total_raw = 0
 
-            for idx, pid in enumerate(playlist_ids, start=1):
+            for playlist_position, playlist_id in enumerate(playlist_ids, start=1):
                 if self.cancel_event.is_set():
                     self._ui_call(lambda: self._append_log("Video çekme işlemi iptal edildi."))
                     return
-                self._ui_call(lambda i=idx: self._set_progress(i, len(playlist_ids)))
-                self._ui_call(lambda p=pid, i=idx: self._append_log(f"[{i}/{len(playlist_ids)}] {p}"))
+                self._ui_call(lambda p=playlist_position: self._set_progress(p, len(playlist_ids)))
+                self._ui_call(
+                    lambda p_id=playlist_id, p=playlist_position: self._append_log(
+                        f"[{p}/{len(playlist_ids)}] {p_id}"
+                    )
+                )
                 try:
-                    videos = self.youtube_service.fetch_playlist_items(pid, search_text=api_filter)
+                    videos = self.youtube_service.fetch_playlist_items(
+                        playlist_id,
+                        search_text=api_filter,
+                    )
                 except Exception as exc:
                     self._ui_call(
-                        lambda p=pid, e=exc: self._append_log(f"HATA: Playlist okunamadı ({p}): {e}")
+                        lambda p_id=playlist_id, err=exc: self._append_log(
+                            f"HATA: Playlist okunamadı ({p_id}): {err}"
+                        )
                     )
                     continue
 
@@ -783,7 +792,7 @@ class PlaylistApp:
         messagebox.showinfo("Tamam", f"CSV oluşturuldu:\n{path}")
 
     def open_settings_dialog(self) -> None:
-        """Open settings for timeout/retry/backoff and dry-run defaults."""
+        """Ağ ve bakım ayarlarını düzenleyen pencereyi açar."""
         dialog = tk.Toplevel(self.root)
         dialog.title("Ayarlar")
         dialog.transient(self.root)
@@ -943,7 +952,7 @@ class PlaylistApp:
         ttk.Button(button_row, text="Vazgeç", command=dialog.destroy).pack(side="left")
 
     def show_retry_details_dialog(self) -> None:
-        """Show retry/backoff diagnostics for the latest operation."""
+        """Son işlemde oluşan retry/backoff detaylarını gösterir."""
         dialog = tk.Toplevel(self.root)
         dialog.title("Retry Detayları")
         dialog.transient(self.root)
@@ -971,7 +980,7 @@ class PlaylistApp:
         text.configure(state="disabled")
 
     def show_maintenance_dialog(self) -> None:
-        """Show startup housekeeping results and quick maintenance actions."""
+        """Bakım özeti, arşiv araçları ve sağlık raporu işlemlerini gösterir."""
         dialog = tk.Toplevel(self.root)
         dialog.title("Maintenance")
         dialog.transient(self.root)
@@ -1192,9 +1201,9 @@ class PlaylistApp:
                 except json.JSONDecodeError:
                     return line
 
-            def format_with_line_no(idx: int, content: str) -> str:
+            def format_with_line_no(line_number: int, content: str) -> str:
                 if line_numbers_var.get():
-                    return f"{idx:04d}: {content}"
+                    return f"{line_number:04d}: {content}"
                 return content
 
             def copy_visible_text() -> None:
@@ -1221,9 +1230,9 @@ class PlaylistApp:
                 content_lines = lines[:max_lines]
                 mode = view_mode_var.get().strip()
                 rendered_lines: list[str] = []
-                for idx, line in enumerate(content_lines, start=1):
-                    raw = format_with_line_no(idx, line)
-                    pretty = format_with_line_no(idx, to_pretty(line))
+                for line_number, line in enumerate(content_lines, start=1):
+                    raw = format_with_line_no(line_number, line)
+                    pretty = format_with_line_no(line_number, to_pretty(line))
                     if mode == "pretty" or (pretty_var.get() and mode == "raw"):
                         rendered_lines.append(pretty)
                     elif mode == "compare":
@@ -1251,12 +1260,12 @@ class PlaylistApp:
                 preview_text.tag_configure("match", background="#5A4B00", foreground="#FFFFFF")
                 start = "1.0"
                 while True:
-                    idx = preview_text.search(needle, start, stopindex=tk.END, nocase=True)
-                    if not idx:
+                    match_start = preview_text.search(needle, start, stopindex=tk.END, nocase=True)
+                    if not match_start:
                         break
-                    end = f"{idx}+{len(needle)}c"
-                    preview_text.tag_add("match", idx, end)
-                    start = end
+                    match_end = f"{match_start}+{len(needle)}c"
+                    preview_text.tag_add("match", match_start, match_end)
+                    start = match_end
 
             search_entry.bind("<KeyRelease>", lambda _: highlight_search_matches())
             pretty_var.trace_add("write", lambda *_: render_preview())
@@ -1316,7 +1325,7 @@ class PlaylistApp:
         render_report()
 
     def show_history_dialog(self) -> None:
-        """Show filterable operation history and optional CSV export."""
+        """Filtrelenebilir işlem geçmişini gösterir ve CSV dışa aktarım sunar."""
         entries = load_history(limit=500)
         dialog = tk.Toplevel(self.root)
         dialog.title("İşlem Geçmişi")
@@ -1423,7 +1432,7 @@ class PlaylistApp:
             extra_state = []
             if self.prefs.last_download_dir:
                 extra_state.append(Path(self.prefs.last_download_dir) / DEFAULT_JOB_STATE_NAME)
-            removed = clear_runtime_state_files(extra_paths=extra_state)
+            removed = clear_state_files(extra_paths=extra_state)
             if removed:
                 removed_lines = "\n".join(str(item) for item in removed)
                 messagebox.showinfo("Tamam", f"State dosyaları silindi:\n{removed_lines}")

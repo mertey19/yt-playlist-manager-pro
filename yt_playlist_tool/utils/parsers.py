@@ -1,4 +1,4 @@
-"""Parsers and validators for user input and text extraction."""
+"""Kullanıcı girdisi çözümleme ve metin ayıklama yardımcıları."""
 
 from __future__ import annotations
 
@@ -12,40 +12,40 @@ URL_PATTERN = re.compile(r"(https?://[^\s<>\"]+)", re.IGNORECASE)
 
 
 def extract_playlist_id(text: str) -> str | None:
-    """Extract playlist ID from raw ID or URL input."""
-    text = text.strip()
-    if not text:
+    """Playlist kimliğini düz metinden veya URL'den çıkarır."""
+    raw_value = text.strip()
+    if not raw_value:
         return None
 
-    if text.startswith("http://") or text.startswith("https://"):
-        parsed = urlparse(text)
+    if raw_value.startswith("http://") or raw_value.startswith("https://"):
+        parsed = urlparse(raw_value)
         query = parse_qs(parsed.query)
         candidate = query.get("list", [None])[0]
         return candidate.strip() if candidate else None
 
-    return text
+    return raw_value
 
 
 def parse_playlist_id_list(raw: str) -> list[str]:
-    """Parse multiline/comma-separated playlist inputs without duplicates."""
-    ids: list[str] = []
+    """Satır veya virgülle ayrılmış playlist girişlerini tekilleştirerek döndürür."""
+    playlist_ids: list[str] = []
     seen: set[str] = set()
     for part in re.split(r"[\n,]+", raw):
-        pid = extract_playlist_id(part)
-        if pid and pid not in seen:
-            seen.add(pid)
-            ids.append(pid)
-    return ids
+        playlist_id = extract_playlist_id(part)
+        if playlist_id and playlist_id not in seen:
+            seen.add(playlist_id)
+            playlist_ids.append(playlist_id)
+    return playlist_ids
 
 
 def parse_range_string(range_str: str, max_index: int) -> list[int]:
-    """Parse index range strings like '1-3, 8, 10-12'."""
-    indices: set[int] = set()
-    raw = range_str.strip()
-    if not raw:
+    """`1-3, 8, 10-12` biçimindeki aralık metnini index listesine çevirir."""
+    selected_indices: set[int] = set()
+    cleaned = range_str.strip()
+    if not cleaned:
         return []
 
-    for part in raw.split(","):
+    for part in cleaned.split(","):
         token = part.strip()
         if not token:
             continue
@@ -60,24 +60,24 @@ def parse_range_string(range_str: str, max_index: int) -> list[int]:
                 raise ValueError(f"Geçersiz aralık: '{token}'") from exc
             if start > end:
                 raise ValueError(f"Aralık başlangıcı bitişten büyük: '{token}'")
-            for i in range(start, end + 1):
-                if 1 <= i <= max_index:
-                    indices.add(i)
+            for index_value in range(start, end + 1):
+                if 1 <= index_value <= max_index:
+                    selected_indices.add(index_value)
         else:
             try:
-                i = int(token)
+                index_value = int(token)
             except ValueError as exc:
                 raise ValueError(f"Geçersiz index: '{token}'") from exc
-            if 1 <= i <= max_index:
-                indices.add(i)
+            if 1 <= index_value <= max_index:
+                selected_indices.add(index_value)
 
-    if not indices:
+    if not selected_indices:
         raise ValueError("Hiç geçerli index üretilmedi, aralıkları kontrol edin.")
-    return sorted(indices)
+    return sorted(selected_indices)
 
 
 def extract_pdf_links_from_text(text: str) -> list[str]:
-    """Extract probable PDF and Google Drive URLs from plain text."""
+    """Metin içindeki PDF ve Google Drive bağlantılarını çıkarır."""
     if not text:
         return []
 
@@ -94,7 +94,7 @@ def extract_pdf_links_from_text(text: str) -> list[str]:
 
 
 def convert_drive_link_to_direct(url: str) -> str:
-    """Convert common Drive share URLs to direct download format."""
+    """Google Drive paylaşım linkini doğrudan indirme formatına çevirir."""
     parsed = urlparse(url)
     if "drive.google.com" not in parsed.netloc:
         return url
@@ -116,22 +116,22 @@ def convert_drive_link_to_direct(url: str) -> str:
 
 
 def build_search_terms(search_text: str) -> list[str]:
-    """Split and normalize search terms from free text."""
+    """Serbest metindeki arama kelimelerini normalize ederek döndürür."""
     parts = re.split(r"[,\s]+", search_text.strip())
     return [normalize_text(p) for p in parts if p.strip()]
 
 
 def title_matches_terms(title: str, terms: Iterable[str]) -> bool:
-    """Return True when all normalized terms appear in normalized title."""
-    terms = list(terms)
-    if not terms:
+    """Başlıktaki normalize metin tüm arama kelimelerini içeriyorsa True döner."""
+    term_list = list(terms)
+    if not term_list:
         return True
     normalized = normalize_text(title)
-    return all(term in normalized for term in terms)
+    return all(term in normalized for term in term_list)
 
 
 def tokenize_for_topic(text: str) -> list[str]:
-    """Tokenize a filename/title into meaningful normalized words."""
+    """Dosya adı veya başlığı konu analizi için kelimelere ayırır."""
     text = normalize_text(text)
     chunks = re.split(r"[_\-\s\.]+", text)
     return [c for c in chunks if c and not c.isdigit() and len(c) > 1]

@@ -1,4 +1,4 @@
-"""Application-wide configuration and constants."""
+"""Uygulama genelinde kullanılan sabitler ve tema ayarları."""
 
 from __future__ import annotations
 
@@ -53,7 +53,7 @@ DEFAULT_TOPIC_KEYWORDS = [
 
 @dataclass(frozen=True)
 class Theme:
-    """Centralized color palette for dark-themed ttk UI."""
+    """ttk arayüzünde kullanılan koyu tema renk paleti."""
 
     bg: str = "#1E1E1E"
     panel_bg: str = "#252526"
@@ -66,7 +66,7 @@ class Theme:
 
 
 def get_app_dir() -> Path:
-    """Return local app data directory, creating it if necessary."""
+    """Uygulama veri klasörünü döndürür, yoksa oluşturur."""
     app_dir = Path.home() / APP_DIR_NAME
     app_dir.mkdir(parents=True, exist_ok=True)
     return app_dir
