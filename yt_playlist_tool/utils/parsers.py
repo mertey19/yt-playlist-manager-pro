@@ -12,18 +12,34 @@ URL_PATTERN = re.compile(r"(https?://[^\s<>\"]+)", re.IGNORECASE)
 
 
 def extract_playlist_id(text: str) -> str | None:
-    """Extract a playlist ID from plain text or a URL."""
+    """Extract a playlist ID from plain text, mixed text, or a URL."""
     raw_value = text.strip()
     if not raw_value:
         return None
+
+    # Try URLs first, even when the input contains extra text around a URL.
+    for url_candidate in URL_PATTERN.findall(raw_value):
+        parsed = urlparse(url_candidate)
+        query = parse_qs(parsed.query)
+        candidate = query.get("list", [None])[0]
+        if candidate:
+            return candidate.strip()
 
     if raw_value.startswith("http://") or raw_value.startswith("https://"):
         parsed = urlparse(raw_value)
         query = parse_qs(parsed.query)
         candidate = query.get("list", [None])[0]
-        return candidate.strip() if candidate else None
+        if candidate:
+            return candidate.strip()
+        return None
 
-    return raw_value
+    # Fall back to plain ID extraction from mixed text lines.
+    id_match = re.search(r"\b(PL|UU|LL|OLAK5uy_)[A-Za-z0-9_-]{10,}\b", raw_value)
+    if id_match:
+        return id_match.group(0)
+
+    cleaned = raw_value.strip(" ,;\"'()[]{}")
+    return cleaned or None
 
 
 def parse_playlist_id_list(raw: str) -> list[str]:

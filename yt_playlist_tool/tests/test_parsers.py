@@ -20,6 +20,16 @@ def test_extract_playlist_id_from_url() -> None:
     assert extract_playlist_id(url) == "PL1234567890ABCDE"
 
 
+def test_extract_playlist_id_from_mixed_text_url() -> None:
+    text = "Please check this playlist: https://www.youtube.com/playlist?list=PLXYZ1234567890ABCDE&si=abc"
+    assert extract_playlist_id(text) == "PLXYZ1234567890ABCDE"
+
+
+def test_extract_playlist_id_from_mixed_text_plain_id() -> None:
+    text = "source -> PL1234567890ABCDE extra"
+    assert extract_playlist_id(text) == "PL1234567890ABCDE"
+
+
 def test_extract_playlist_id_from_raw_id() -> None:
     assert extract_playlist_id("PL_TEST_001") == "PL_TEST_001"
 

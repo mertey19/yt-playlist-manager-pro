@@ -428,8 +428,8 @@ class PlaylistApp:
             try:
                 self.youtube_service.connect()
             except (AuthError, YouTubeServiceError, OSError) as exc:
-                self._ui_call(lambda: messagebox.showerror("YouTube Connection Error", str(exc)))
-                self._ui_call(lambda: self._append_log(f"ERROR: Could not connect: {exc}"))
+                self._ui_call(lambda err=exc: messagebox.showerror("YouTube Connection Error", str(err)))
+                self._ui_call(lambda err=exc: self._append_log(f"ERROR: Could not connect: {err}"))
                 return False
             self.youtube_connected = True
             self._ui_call(lambda: self._append_log("Connected to YouTube service."))
@@ -464,6 +464,9 @@ class PlaylistApp:
         self.worker_thread.start()
 
     def cancel_current_task(self) -> None:
+        if not self.worker_thread or not self.worker_thread.is_alive():
+            self._set_status("No running operation to cancel.")
+            return
         self.cancel_event.set()
         self._set_status("Cancel request sent...")
         self._append_log("Cancel request received. Operation will stop at a safe point.")
@@ -477,6 +480,9 @@ class PlaylistApp:
         api_filter = self.search_entry.get().strip()
 
         def worker() -> None:
+            self._ui_call(
+                lambda: self._append_log(f"Starting playlist fetch for {len(playlist_ids)} source(s).")
+            )
             if not self._ensure_connected():
                 return
 
@@ -484,6 +490,7 @@ class PlaylistApp:
             merged: list[VideoItem] = []
             duplicate_skipped = 0
             total_raw = 0
+            playlist_errors: list[str] = []
 
             for playlist_position, playlist_id in enumerate(playlist_ids, start=1):
                 if self.cancel_event.is_set():
@@ -501,6 +508,7 @@ class PlaylistApp:
                         search_text=api_filter,
                     )
                 except Exception as exc:
+                    playlist_errors.append(f"{playlist_id}: {exc}")
                     self._ui_call(
                         lambda p_id=playlist_id, err=exc: self._append_log(
                             f"ERROR: Could not read playlist ({p_id}): {err}"
@@ -525,6 +533,8 @@ class PlaylistApp:
                         f"Unique: {len(merged)}, Duplicates skipped: {duplicate_skipped}"
                     )
                 )
+                if playlist_errors:
+                    self._append_log(f"Playlists with errors: {len(playlist_errors)}")
                 messagebox.showinfo(
                     "Listing Completed",
                     (
@@ -533,6 +543,14 @@ class PlaylistApp:
                         f"Duplicates skipped: {duplicate_skipped}"
                     ),
                 )
+                if not merged and playlist_errors:
+                    messagebox.showerror(
+                        "Fetch Failed",
+                        "No videos were fetched.\n\n"
+                        "At least one playlist failed to load. Please verify playlist IDs/URLs "
+                        "and your API access.\n\n"
+                        f"First error:\n{playlist_errors[0]}",
+                    )
 
             self._ui_call(finish_fetch)
 
@@ -591,6 +609,15 @@ class PlaylistApp:
 
         target_playlist_id = extract_playlist_id(self.target_entry.get().strip() or "")
         target_playlist_name = self.target_name_entry.get().strip()
+        if target_playlist_id and not target_playlist_id.replace("-", "").replace("_", "").isalnum():
+            messagebox.showerror(
+                "Invalid Input",
+                (
+                    "Target Playlist ID looks invalid.\n"
+                    "Please provide a valid playlist ID/URL, or leave it empty to create a new playlist."
+                ),
+            )
+            return
         dry_run = self.dry_run_var.get()
         transfer_state_path = get_app_dir() / DEFAULT_TRANSFER_STATE_NAME
         resume_transfer = False
@@ -626,8 +653,8 @@ class PlaylistApp:
                         state_path=transfer_state_path,
                     )
             except Exception as exc:
-                self._ui_call(lambda: messagebox.showerror("Transfer Error", str(exc)))
-                self._ui_call(lambda: self._append_log(f"ERROR: Transfer failed: {exc}"))
+                self._ui_call(lambda err=exc: messagebox.showerror("Transfer Error", str(err)))
+                self._ui_call(lambda err=exc: self._append_log(f"ERROR: Transfer failed: {err}"))
                 return
 
             self._ui_call(lambda s=stats, d=dry_run: self._finish_transfer(s, d))
